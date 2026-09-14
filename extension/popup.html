@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<title>ChekhovsGun</title>
+<style>
+  :root { color-scheme: light dark; }
+  body {
+    width: 290px; margin: 0; padding: 14px;
+    font: 13.5px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    background: #14171f; color: #e8eaf0;
+  }
+  @media (prefers-color-scheme: light) { body { background: #fffdf9; color: #1b1d22; } }
+  h1 { font-size: 14px; margin: 0 0 2px; display: flex; align-items: center; gap: 7px; }
+  .mark { width: 9px; height: 9px; border-radius: 50%; background: #e0a458; }
+  .sub { font-size: 11.5px; opacity: .6; margin: 0 0 12px; }
+  .row { display: flex; align-items: center; gap: 8px; padding: 7px 0; font-size: 13px; }
+  .row + .row { border-top: 1px solid rgba(128,128,128,.16); }
+  .row label { flex: 1; cursor: pointer; }
+  input[type=checkbox] { width: 15px; height: 15px; accent-color: #e0a458; cursor: pointer; }
+  .stat { display: flex; justify-content: space-between; font-size: 12px; opacity: .75; padding: 3px 0; }
+  .stat b { font-variant-numeric: tabular-nums; }
+  .status { margin: 10px 0 0; padding: 8px 10px; border-radius: 8px; font-size: 12px;
+            background: rgba(128,128,128,.12); }
+  .status.bad { background: rgba(255,75,75,.14); color: #ff9b9b; }
+  a.btn { display: block; text-align: center; margin-top: 10px; padding: 8px;
+          border-radius: 8px; background: #e0a458; color: #17130c; font-weight: 600;
+          text-decoration: none; font-size: 13px; }
+</style>
+</head>
+<body>
+  <h1><span class="mark"></span>ChekhovsGun</h1>
+  <p class="sub">契诃夫的枪 · 每一件收藏都必须开火</p>
+
+  <div class="row"><label for="enabled">启用提醒</label><input type="checkbox" id="enabled" /></div>
+  <div class="row"><label for="youtube">在 YouTube 上</label><input type="checkbox" id="youtube" /></div>
+  <div class="row"><label for="bilibili">在 Bilibili 上</label><input type="checkbox" id="bilibili" /></div>
+  <div class="row"><label for="explain">生成解读（需本地配置 LLM）</label><input type="checkbox" id="explain" /></div>
+
+  <div id="stats"></div>
+  <div class="status" id="status">正在连接本地服务…</div>
+  <a class="btn" id="dashboard" href="#" target="_blank" rel="noopener">打开仪表盘</a>
+</body>
+<script src="popup.js"></script>
+</html>

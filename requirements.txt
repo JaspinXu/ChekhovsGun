@@ -1,0 +1,4 @@
+numpy>=1.24
+httpx>=0.25
+fastapi>=0.110
+uvicorn>=0.27

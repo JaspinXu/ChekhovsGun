@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>ChekhovsGun · 契诃夫的枪</title>
+<link rel="stylesheet" href="/app.css" />
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔫</text></svg>" />
+</head>
+<body>
+<header class="masthead">
+  <div class="wrap">
+    <div class="brand">
+      <span class="mark" aria-hidden="true"></span>
+      <div>
+        <h1>ChekhovsGun</h1>
+        <p class="tagline">契诃夫的枪 · 挂在墙上的枪，第三幕必须开火</p>
+      </div>
+    </div>
+    <div class="statline" id="statline"><span class="skeleton">…</span></div>
+  </div>
+</header>
+
+<main class="wrap">
+  <section class="panel" id="sources-panel">
+    <div class="panel-head">
+      <h2>来源 Sources</h2>
+      <button class="btn ghost" id="sync-all">同步全部</button>
+    </div>
+    <div class="cards" id="sources"></div>
+    <div class="job" id="job" hidden></div>
+  </section>
+
+  <section class="panel">
+    <div class="panel-head">
+      <h2>开火预览 Fire preview</h2>
+      <span class="hint">粘贴一个 YouTube / Bilibili 链接，看看你的收藏会不会被触发</span>
+    </div>
+    <form class="row" id="relate-form">
+      <input type="text" id="relate-input" placeholder="https://www.bilibili.com/video/BV… 或 https://youtu.be/… 或直接输入标题" autocomplete="off" />
+      <button class="btn primary" type="submit">试一枪</button>
+    </form>
+    <div id="relate-result" class="result"></div>
+  </section>
+
+  <section class="panel">
+    <div class="panel-head">
+      <h2>检索 Search</h2>
+      <span class="hint">混合检索：向量召回 + BM25，RRF 融合，再按置信度筛选</span>
+    </div>
+    <form class="row" id="search-form">
+      <input type="text" id="search-input" placeholder="搜索你收藏过的内容…" autocomplete="off" />
+      <select id="search-source">
+        <option value="">全部来源</option>
+        <option value="youtube">YouTube</option>
+        <option value="bilibili">Bilibili</option>
+      </select>
+      <button class="btn" type="submit">搜索</button>
+    </form>
+    <div id="search-result" class="result"></div>
+  </section>
+
+  <section class="panel">
+    <div class="panel-head">
+      <h2>弹药库 Library</h2>
+      <span class="hint" id="library-count"></span>
+    </div>
+    <div id="library" class="library"></div>
+    <button class="btn ghost wide" id="load-more" hidden>加载更多</button>
+  </section>
+
+  <section class="panel">
+    <div class="panel-head"><h2>最近开火 Recent shots</h2></div>
+    <ul id="events" class="events"></ul>
+  </section>
+</main>
+
+<footer class="wrap foot">
+  <span>ChekhovsGun · 本地运行，索引与观看记录都不会离开这台机器</span>
+  <a href="/docs">API docs</a>
+</footer>
+
+<script src="/app.js"></script>
+</body>
+</html>

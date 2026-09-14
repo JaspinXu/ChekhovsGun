@@ -1,0 +1,556 @@
+[
+  {
+    "url": "https://www.bilibili.com/video/BV1xx411c7mD",
+    "title": "Transformer 论文逐段精读：注意力机制到底在算什么",
+    "author": "跟李沐学AI",
+    "folder": "深度学习",
+    "duration": 4680,
+    "tags": [
+      "transformer",
+      "attention",
+      "深度学习",
+      "论文精读"
+    ],
+    "description": "逐段精读 Attention Is All You Need，讲清楚 self-attention、多头注意力、位置编码和残差连接的动机。",
+    "transcript": [
+      {
+        "start": 120,
+        "duration": 30,
+        "text": "自注意力的核心是把一个序列里的每个词都和其他所有词做一次相关性计算，得到一张注意力矩阵。"
+      },
+      {
+        "start": 150,
+        "duration": 30,
+        "text": "所以复杂度是序列长度的平方，这也是后来长上下文优化的全部出发点。"
+      },
+      {
+        "start": 620,
+        "duration": 30,
+        "text": "多头注意力不是把计算量变大，而是把表示空间切成若干个子空间，让不同的头去关注不同类型的依赖关系。"
+      },
+      {
+        "start": 1400,
+        "duration": 30,
+        "text": "位置编码用正弦和余弦函数，是因为它可以让模型通过线性变换推断出相对位置。"
+      },
+      {
+        "start": 2600,
+        "duration": 30,
+        "text": "残差连接加层归一化，让梯度能够穿过很深的网络，这是 Transformer 能堆到几十层的前提。"
+      }
+    ]
+  },
+  {
+    "url": "https://www.bilibili.com/video/BV1PL411q7Ex",
+    "title": "PostgreSQL 索引原理：B-Tree 到底怎么加速查询",
+    "author": "数据库内核笔记",
+    "folder": "后端",
+    "duration": 2100,
+    "tags": [
+      "postgresql",
+      "索引",
+      "数据库",
+      "性能优化"
+    ],
+    "description": "从磁盘页布局讲到 B-Tree 的分裂与合并，解释为什么复合索引的列顺序决定了它能不能被用上。",
+    "transcript": [
+      {
+        "start": 240,
+        "duration": 30,
+        "text": "B-Tree 索引之所以快，是因为树高通常只有三到四层，一次查询只需要几次磁盘随机读。"
+      },
+      {
+        "start": 900,
+        "duration": 30,
+        "text": "复合索引遵循最左前缀原则，如果查询条件跳过了第一列，这个索引就完全用不上。"
+      },
+      {
+        "start": 1500,
+        "duration": 30,
+        "text": "写入放大来自于每一次插入都可能触发页分裂，所以索引越多写入越慢，这是一个明确的取舍。"
+      }
+    ]
+  },
+  {
+    "url": "https://www.youtube.com/watch?v=zjkBMFhNj_g",
+    "title": "Intro to Large Language Models",
+    "author": "Andrej Karpathy",
+    "folder": "Watch Later",
+    "duration": 3600,
+    "tags": [
+      "llm",
+      "transformer",
+      "machine learning"
+    ],
+    "description": "A one-hour general audience introduction to large language models: pretraining, finetuning, scaling laws and the emerging LLM operating system.",
+    "transcript": [
+      {
+        "start": 300,
+        "duration": 30,
+        "text": "A large language model is really just two files: a parameters file and a small amount of code that runs them."
+      },
+      {
+        "start": 780,
+        "duration": 30,
+        "text": "Pretraining is lossy compression of the internet. The model is forced to learn structure because memorising everything is impossible."
+      },
+      {
+        "start": 1500,
+        "duration": 30,
+        "text": "Scaling laws say that performance is a smooth, predictable function of parameters and data. That predictability is why labs keep spending."
+      },
+      {
+        "start": 2400,
+        "duration": 30,
+        "text": "Finetuning swaps quantity for quality: a much smaller set of high quality conversations turns a document completer into an assistant."
+      }
+    ]
+  },
+  {
+    "url": "https://www.youtube.com/watch?v=Xpzbywj7HbQ",
+    "title": "How Vector Databases Actually Work",
+    "author": "Engineering Deep Dives",
+    "folder": "Watch Later",
+    "duration": 1500,
+    "tags": [
+      "vector database",
+      "embeddings",
+      "hnsw",
+      "retrieval"
+    ],
+    "description": "Approximate nearest neighbour search explained: flat indexes, IVF, HNSW graphs, and when brute force is genuinely the right answer.",
+    "transcript": [
+      {
+        "start": 180,
+        "duration": 30,
+        "text": "Below roughly a hundred thousand vectors, brute force cosine similarity on a numpy matrix beats every approximate index on both latency and accuracy."
+      },
+      {
+        "start": 600,
+        "duration": 30,
+        "text": "HNSW builds a navigable small world graph, so search walks from a coarse layer down to a fine one instead of scanning everything."
+      },
+      {
+        "start": 1000,
+        "duration": 30,
+        "text": "The real failure mode of pure vector search is exact terminology. Hybrid search with BM25 fixes the cases where embeddings blur a precise term."
+      }
+    ]
+  },
+  {
+    "url": "https://www.bilibili.com/video/BV1hd4y1e7Zc",
+    "title": "为什么你的 RAG 检索不准：分块、召回与重排",
+    "author": "AI 工程实践",
+    "folder": "深度学习",
+    "duration": 1800,
+    "tags": [
+      "rag",
+      "检索",
+      "分块",
+      "重排"
+    ],
+    "description": "从分块策略讲到混合检索和重排序，说明为什么单纯换一个更大的 embedding 模型往往解决不了检索不准的问题。",
+    "transcript": [
+      {
+        "start": 200,
+        "duration": 30,
+        "text": "分块太小会丢掉上下文，太大又会让一个块里混进多个主题，稀释掉向量的语义。"
+      },
+      {
+        "start": 700,
+        "duration": 30,
+        "text": "混合检索的意义在于，向量召回擅长语义漂移，BM25 擅长专有名词，两者的失败模式刚好互补。"
+      },
+      {
+        "start": 1200,
+        "duration": 30,
+        "text": "重排序模型看的是查询和文档的交互，代价是每个候选都要过一次模型，所以只适合放在召回之后。"
+      }
+    ]
+  },
+  {
+    "url": "https://www.youtube.com/watch?v=SqcY0GlETPk",
+    "title": "React Performance: What Actually Causes Re-renders",
+    "author": "Frontend Fundamentals",
+    "folder": "Frontend",
+    "duration": 1200,
+    "tags": [
+      "react",
+      "performance",
+      "rendering"
+    ],
+    "description": "Reconciliation, referential equality, memo and the cases where useMemo makes things measurably slower.",
+    "transcript": [
+      {
+        "start": 150,
+        "duration": 30,
+        "text": "A component re-renders when its state changes, its parent re-renders, or its context value changes. That is the whole list."
+      },
+      {
+        "start": 500,
+        "duration": 30,
+        "text": "Wrapping everything in useMemo adds allocation and comparison cost on every render, which is often more expensive than the render you avoided."
+      },
+      {
+        "start": 900,
+        "duration": 30,
+        "text": "Moving state down the tree is almost always a bigger win than memoising, because it shrinks the subtree that has to re-render at all."
+      }
+    ]
+  },
+  {
+    "url": "https://www.bilibili.com/video/BV1qs4y1F7Zg",
+    "title": "SQLite 到底能扛多少并发？WAL 模式实测",
+    "author": "数据库内核笔记",
+    "folder": "后端",
+    "duration": 1450,
+    "tags": [
+      "sqlite",
+      "wal",
+      "并发",
+      "数据库"
+    ],
+    "description": "对比 rollback journal 与 WAL 模式下的读写并发表现，讨论单文件数据库在本地应用里的真实上限。",
+    "transcript": [
+      {
+        "start": 260,
+        "duration": 30,
+        "text": "WAL 模式下读不阻塞写、写不阻塞读，这是 SQLite 能胜任本地应用的关键。"
+      },
+      {
+        "start": 800,
+        "duration": 30,
+        "text": "但写入始终是串行的，同一时刻只有一个写事务，所以高并发写的场景还是要换数据库。"
+      },
+      {
+        "start": 1100,
+        "duration": 30,
+        "text": "对于个人规模的数据，几万行的全表扫描也就是几毫秒，不要过早引入外部服务。"
+      }
+    ]
+  },
+  {
+    "url": "https://www.youtube.com/watch?v=8aGhZQkoFbQ",
+    "title": "What is a Monad? A Practical Explanation",
+    "author": "Computerphile",
+    "folder": "Watch Later",
+    "duration": 1100,
+    "tags": [
+      "functional programming",
+      "monad",
+      "haskell"
+    ],
+    "description": "Monads as a pattern for sequencing computations that carry extra context, explained without category theory.",
+    "transcript": [
+      {
+        "start": 200,
+        "duration": 30,
+        "text": "A monad is a design pattern for chaining operations where each step carries some extra context along with its value."
+      },
+      {
+        "start": 620,
+        "duration": 30,
+        "text": "The useful part is not the definition, it is that once something is a monad you get a whole library of combinators for free."
+      }
+    ]
+  },
+  {
+    "url": "https://www.bilibili.com/video/BV1Ys411K7Jf",
+    "title": "Kubernetes 调度器原理详解：Pod 是怎么被放到节点上的",
+    "author": "云原生实验室",
+    "folder": "后端",
+    "duration": 2400,
+    "tags": [
+      "kubernetes",
+      "调度",
+      "云原生",
+      "容器"
+    ],
+    "description": "从 Predicates 到 Priorities，讲清楚 kube-scheduler 的两阶段筛选打分过程，以及亲和性和污点容忍的实际用法。",
+    "transcript": [
+      {
+        "start": 300,
+        "duration": 30,
+        "text": "调度分两步：先过滤掉放不下的节点，再对剩下的节点打分，选出分最高的那个。"
+      },
+      {
+        "start": 1100,
+        "duration": 30,
+        "text": "节点亲和性是软约束还是硬约束，取决于你用的是 preferred 还是 required，这个区别在生产上非常关键。"
+      },
+      {
+        "start": 1900,
+        "duration": 30,
+        "text": "污点和容忍是反过来的逻辑：节点排斥 Pod，只有显式声明容忍的 Pod 才能被调度上去。"
+      }
+    ]
+  },
+  {
+    "url": "https://www.bilibili.com/video/BV1cN411E7Kb",
+    "title": "Redis 持久化原理：RDB 和 AOF 到底该怎么选",
+    "author": "数据库内核笔记",
+    "folder": "后端",
+    "duration": 1600,
+    "tags": [
+      "redis",
+      "持久化",
+      "缓存",
+      "数据库"
+    ],
+    "description": "对比 RDB 快照与 AOF 追加日志的恢复速度、数据丢失窗口和磁盘开销，给出几种典型场景下的配置建议。",
+    "transcript": [
+      {
+        "start": 240,
+        "duration": 30,
+        "text": "RDB 是某个时间点的全量快照，恢复快，但两次快照之间宕机就会丢数据。"
+      },
+      {
+        "start": 800,
+        "duration": 30,
+        "text": "AOF 记录每一条写命令，配合 everysec 刷盘，最多丢一秒的数据，代价是文件更大恢复更慢。"
+      },
+      {
+        "start": 1300,
+        "duration": 30,
+        "text": "生产上常见的做法是两个都开，用 RDB 做冷备，用 AOF 保证恢复时的数据完整性。"
+      }
+    ]
+  },
+  {
+    "url": "https://www.youtube.com/watch?v=7Pq-S557XQU",
+    "title": "How TCP Congestion Control Actually Works",
+    "author": "Engineering Deep Dives",
+    "folder": "Networking",
+    "duration": 1700,
+    "tags": [
+      "tcp",
+      "networking",
+      "congestion control",
+      "bbr"
+    ],
+    "description": "Slow start, AIMD, and why BBR changed the model from loss-based to bandwidth and round-trip-time based control.",
+    "transcript": [
+      {
+        "start": 260,
+        "duration": 30,
+        "text": "Classic TCP treats packet loss as the congestion signal, which breaks badly on modern links where loss is often random rather than congestive."
+      },
+      {
+        "start": 900,
+        "duration": 30,
+        "text": "BBR instead estimates the bottleneck bandwidth and the minimum round trip time, and paces sending to that estimate."
+      },
+      {
+        "start": 1400,
+        "duration": 30,
+        "text": "The practical result is much lower buffer occupancy, which is why your video call stops stuttering behind a big download."
+      }
+    ]
+  },
+  {
+    "url": "https://www.youtube.com/watch?v=RcVA8Nj6HEo",
+    "title": "Docker Networking Explained: Bridges, Overlays and DNS",
+    "author": "Cloud Native Weekly",
+    "folder": "Networking",
+    "duration": 1350,
+    "tags": [
+      "docker",
+      "networking",
+      "containers",
+      "dns"
+    ],
+    "description": "What actually happens when a container talks to another container, from veth pairs and bridges to overlay networks and embedded DNS.",
+    "transcript": [
+      {
+        "start": 200,
+        "duration": 30,
+        "text": "Every container gets a veth pair: one end inside its network namespace, the other plugged into a bridge on the host."
+      },
+      {
+        "start": 700,
+        "duration": 30,
+        "text": "Container name resolution goes through an embedded DNS server, which is why containers on the default bridge cannot resolve each other by name."
+      },
+      {
+        "start": 1100,
+        "duration": 30,
+        "text": "Overlay networks tunnel this over VXLAN so containers on different hosts behave as if they were on one L2 segment."
+      }
+    ]
+  },
+  {
+    "url": "https://www.bilibili.com/video/BV1kv4y1x7wN",
+    "title": "Python 异步编程详解：event loop 到底在做什么",
+    "author": "AI 工程实践",
+    "folder": "后端",
+    "duration": 2000,
+    "tags": [
+      "python",
+      "asyncio",
+      "并发",
+      "协程"
+    ],
+    "description": "从生成器讲到协程和事件循环，解释 await 到底把控制权交给了谁，以及为什么 CPU 密集任务放进 asyncio 只会更慢。",
+    "transcript": [
+      {
+        "start": 300,
+        "duration": 30,
+        "text": "await 做的事情是把当前协程挂起，把控制权交还给事件循环，让它去跑别的已经就绪的任务。"
+      },
+      {
+        "start": 1000,
+        "duration": 30,
+        "text": "所以异步只对 IO 等待有用，如果你在协程里跑一个纯计算的循环，整个事件循环都会被卡住。"
+      },
+      {
+        "start": 1600,
+        "duration": 30,
+        "text": "要跑 CPU 密集任务，正确做法是丢进线程池或者进程池，让事件循环继续转。"
+      }
+    ]
+  },
+  {
+    "url": "https://www.youtube.com/watch?v=YJ9Nz9hTnE0",
+    "title": "Designing Data-Intensive Applications: The Key Ideas",
+    "author": "Systems Book Club",
+    "folder": "Watch Later",
+    "duration": 2900,
+    "tags": [
+      "distributed systems",
+      "databases",
+      "replication",
+      "consistency"
+    ],
+    "description": "Replication, partitioning, and the consistency models that distributed databases actually offer versus what people assume they offer.",
+    "transcript": [
+      {
+        "start": 400,
+        "duration": 30,
+        "text": "Leader based replication is simple to reason about, but the failover story is where almost every real outage comes from."
+      },
+      {
+        "start": 1200,
+        "duration": 30,
+        "text": "Eventual consistency is not a single guarantee: read your writes, monotonic reads and consistent prefix reads are separate properties you may or may not get."
+      },
+      {
+        "start": 2100,
+        "duration": 30,
+        "text": "Partitioning by hash spreads load evenly but destroys range queries, which is the trade nobody thinks about until the first analytics request arrives."
+      }
+    ]
+  },
+  {
+    "url": "https://www.bilibili.com/video/BV1Wf4y1U7Ny",
+    "title": "TypeScript 类型体操入门：条件类型与映射类型",
+    "author": "前端每日一题",
+    "folder": "Frontend",
+    "duration": 1250,
+    "tags": [
+      "typescript",
+      "类型",
+      "前端"
+    ],
+    "description": "从 extends 条件类型讲到 infer 和映射类型，说明什么时候该写复杂类型，什么时候应该停下来。",
+    "transcript": [
+      {
+        "start": 200,
+        "duration": 30,
+        "text": "条件类型的本质是类型层面的三元表达式，extends 在这里表示的是可赋值性而不是继承。"
+      },
+      {
+        "start": 700,
+        "duration": 30,
+        "text": "infer 让你在匹配的同时把一部分类型抽出来，这是实现 ReturnType 这类工具类型的基础。"
+      },
+      {
+        "start": 1000,
+        "duration": 30,
+        "text": "但类型体操写得太复杂，编译会变慢，报错也会变得没人看得懂，这是一个真实的工程代价。"
+      }
+    ]
+  },
+  {
+    "url": "https://www.youtube.com/watch?v=3t6L-FlfeaI",
+    "title": "CSS Grid vs Flexbox: When To Use Which",
+    "author": "Frontend Fundamentals",
+    "folder": "Frontend",
+    "duration": 980,
+    "tags": [
+      "css",
+      "layout",
+      "grid",
+      "flexbox",
+      "frontend"
+    ],
+    "description": "A practical decision guide: one-dimensional versus two-dimensional layout, and the cases where mixing both is the right answer.",
+    "transcript": [
+      {
+        "start": 150,
+        "duration": 30,
+        "text": "Flexbox lays out along one axis at a time. Grid places items into rows and columns simultaneously. That is the whole decision."
+      },
+      {
+        "start": 600,
+        "duration": 30,
+        "text": "If you find yourself fighting flexbox with margins and fixed widths, that is the signal you actually wanted grid."
+      }
+    ]
+  },
+  {
+    "url": "https://www.bilibili.com/video/BV1jz4y1B7GB",
+    "title": "Git rebase 与 merge 的区别：一次讲清楚提交历史",
+    "author": "工程效率笔记",
+    "folder": "工具",
+    "duration": 1100,
+    "tags": [
+      "git",
+      "版本控制",
+      "工程效率"
+    ],
+    "description": "用图解方式说明 rebase 如何重写提交历史，以及为什么不要对已经推送的公共分支做 rebase。",
+    "transcript": [
+      {
+        "start": 180,
+        "duration": 30,
+        "text": "merge 保留了真实发生过的分叉历史，rebase 则是把你的提交一个个重新播放到目标分支上。"
+      },
+      {
+        "start": 620,
+        "duration": 30,
+        "text": "因为 rebase 会生成新的提交对象，对已经推送出去的分支做 rebase，别人拉下来就会冲突成一团。"
+      }
+    ]
+  },
+  {
+    "url": "https://www.youtube.com/watch?v=KPVLzOHFo1w",
+    "title": "Prompt Engineering Is Mostly Context Engineering",
+    "author": "Applied AI Notes",
+    "folder": "Watch Later",
+    "duration": 1450,
+    "tags": [
+      "llm",
+      "prompting",
+      "rag",
+      "context"
+    ],
+    "description": "Why retrieval quality, example selection and output format constraints matter far more than clever instruction wording.",
+    "transcript": [
+      {
+        "start": 240,
+        "duration": 30,
+        "text": "Most prompt failures are not wording failures. The model simply was not given the piece of context that contained the answer."
+      },
+      {
+        "start": 800,
+        "duration": 30,
+        "text": "Which means the highest leverage work is in retrieval: chunking, ranking and deciding what to put in the window, not in rewriting the instruction."
+      },
+      {
+        "start": 1200,
+        "duration": 30,
+        "text": "Constraining the output format is the other big win, because it removes an entire class of parsing failures downstream."
+      }
+    ]
+  }
+]
