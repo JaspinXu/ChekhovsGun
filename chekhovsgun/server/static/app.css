@@ -193,7 +193,18 @@ input[type=text]:focus, select:focus { outline: 2px solid var(--accent-soft); bo
 .score { font-family: var(--mono); font-size: 11.5px; color: var(--ink-faint); }
 
 /* -------------------------------------------------------------- library -- */
+.filters { margin-bottom: 12px; }
 .library { display: flex; flex-direction: column; }
+.hit.is-digested .title a { text-decoration: line-through; text-decoration-color: var(--ink-faint); }
+.hit.is-digested, .hit.is-muted { opacity: .55; }
+.state {
+  font-size: 11px; padding: 1px 7px; border-radius: 20px; border: 1px solid currentColor;
+}
+.state.digested { color: var(--ok); }
+.state.muted { color: var(--warn); }
+.utag { font-size: 11px; padding: 1px 7px; border-radius: 20px;
+        background: var(--accent-soft); color: var(--accent); }
+.hit .marks { display: flex; gap: 6px; margin-top: 7px; }
 .library .hit .thumb { width: 84px; height: 48px; }
 
 .events { list-style: none; margin: 0; padding: 0; font-size: 13px; }

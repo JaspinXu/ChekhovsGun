@@ -14,7 +14,7 @@ from pathlib import Path
 from typing import Iterable, Iterator
 
 from ..config import Config
-from ..models import SavedItem, Segment
+from ..models import Comment, SavedItem, Segment
 from .base import AdapterError, SourceAdapter
 
 _FIELD_ALIASES = {
@@ -82,6 +82,7 @@ class LocalFileAdapter(SourceAdapter):
             url = _pick(row, "url")
             source, source_id = detect_source(url)
             transcript = row.get("transcript") or row.get("segments") or []
+            comments = row.get("comments") or []
             yield SavedItem(
                 source=source or self.name,
                 source_id=source_id or row.get("id") or f"{self.name}-{index}",
@@ -94,8 +95,23 @@ class LocalFileAdapter(SourceAdapter):
                 duration=int(row.get("duration", 0) or 0),
                 saved_at=float(row.get("saved_at", 0) or time.time()),
                 tags=[t for t in (row.get("tags") or []) if t],
-                extra={"transcript": transcript} if transcript else {},
+                extra={
+                    **({"transcript": transcript} if transcript else {}),
+                    **({"comments": comments} if comments else {}),
+                },
             )
+
+    def fetch_comments(self, item: SavedItem) -> Iterator[Comment]:
+        for row in item.extra.get("comments") or []:
+            if isinstance(row, str):
+                yield Comment(text=row)
+            else:
+                yield Comment(
+                    text=str(row.get("text", "")),
+                    author=str(row.get("author", "")),
+                    likes=int(row.get("likes", 0) or 0),
+                    replies=[str(r) for r in (row.get("replies") or [])],
+                )
 
     def fetch_content(self, item: SavedItem) -> Iterator[Segment]:
         rows = item.extra.get("transcript") or []

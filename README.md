@@ -32,11 +32,14 @@
 ```
 
 1. **抓取** — 从 YouTube 播放列表 / Liked / Watch Later 和 B 站收藏夹、稍后再看
-   拉取你保存过的视频，连同字幕（B 站 CC 字幕与 AI 字幕都要）。
+   拉取你保存过的视频，连同字幕（B 站 CC 字幕与 AI 字幕都要）、以及**高赞评论**。
+   完全没有字幕的视频，会用本地 Whisper 转写兜底。
 2. **索引** — 按时间轴把字幕切成带时间戳的段落，算向量，同时建 BM25 倒排。
 3. **检索** — 混合检索 + RRF 融合，再用一个独立的**置信度**决定「到底要不要打扰你」。
 4. **开火** — 浏览器扩展识别你当前在看的视频，命中就弹一张卡片，
    点进去直接跳到收藏视频里讲这件事的那一秒。
+5. **收枪** — 看完了点一下「已消化」，它就不会再来烦你。
+   这个数字（而不是弹出次数）才是这个项目的成功指标。
 
 ---
 
@@ -50,8 +53,11 @@ cd ChekhovsGun
 pip install -e .
 
 chekhovsgun demo      # 灌一批示例收藏，并演示一次检索
-chekhovsgun serve --open   # 打开本地仪表盘
+chekhovsgun tray      # 后台常驻 + 托盘图标，自动打开仪表盘
 ```
+
+不想装 Python 的话，[Releases](https://github.com/JaspinXu/ChekhovsGun/releases)
+里有打包好的单文件程序，双击即可；`chekhovsgun serve` 仍然是等价的前台版本。
 
 `demo` 会输出类似这样的东西：
 
@@ -147,6 +153,57 @@ chekhovsgun import urls.txt               # 一行一个链接
 
 扩展只访问 `http://127.0.0.1:8700`，不做任何其他网络请求。
 端口、冷却时间、每个站点是否启用，都可以在扩展的选项页里改。
+
+---
+
+## 三个内容源
+
+**字幕**是主力。B 站的 CC 字幕和 AI 字幕都收，人工优先；YouTube 走播放器那条路。
+
+**评论**是被大多数同类工具忽略的一座金矿。高赞评论里常有视频本身没有的东西：
+勘误、UP 跳过的前置知识、"其实 7.0 之后已经不是这样了"。而且它是纯文本，
+一个请求就能拿到，是这个项目里性价比最高的内容。
+
+```bash
+chekhovsgun ingest --no-comments    # 不想要的话
+```
+
+**本地语音转写**是兜底。真实收藏夹里大约三分之一的视频两种字幕都没有，
+这些以前只能靠标题和简介入库，既检索不准也没法跳转。现在用 faster-whisper
+在本地补上：
+
+```bash
+pip install -e ".[whisper]"     # faster-whisper + yt-dlp
+chekhovsgun ingest --source bilibili
+```
+
+音频不出本机。因为转写是分钟级而不是毫秒级的，它有两道闸：单个视频超过 45 分钟
+就跳过，每次同步最多花 30 分钟在转写上（都可配置）。它挂在管线上而不是某个
+adapter 里——只要有 URL 就能用，所以以后加第三个来源时是白送的。
+
+---
+
+## 收藏的一生
+
+一件收藏有三个状态，用来回答「开火之后呢」：
+
+| 状态 | 含义 | 还会弹吗 | 算进消化率吗 |
+| --- | --- | --- | --- |
+| 待消化 | 默认 | 会 | — |
+| **已消化** | 你回去看完了，学到了 | 不会 | **算** |
+| 已静音 | 别再拿这个烦我 | 不会 | 不算 |
+
+```bash
+chekhovsgun mark https://www.bilibili.com/video/BV1xx --digested --tag 注意力
+chekhovsgun items --status active          # 还欠着的
+chekhovsgun items --tag 注意力
+```
+
+卡片上直接有「✓ 已消化」按钮，仪表盘里也能按状态和标签筛。
+
+两个设计细节：**静音只停止打扰，不影响检索**——你主动搜的时候它照样出来；
+**重新同步永远不会覆盖你的标记**，`upsert` 刻意不碰 `status` / `user_tags` / `note`
+这三列，否则每晚一次同步就会把你消化过的东西又翻出来。
 
 ---
 
@@ -246,12 +303,16 @@ export CHEKHOVSGUN_LLM_BASE_URL=            # 任何 OpenAI 兼容端点
 | 命令 | 作用 |
 | --- | --- |
 | `chekhovsgun demo` | 灌示例数据并跑一次检索 |
-| `chekhovsgun status` | 看库存、各来源是否配好 |
+| `chekhovsgun status` | 看库存、消化率、各来源是否配好 |
 | `chekhovsgun ingest [--source X] [--limit N] [--force]` | 同步收藏 |
+| `chekhovsgun ingest --whisper` / `--no-comments` | 强制本地转写 / 跳过评论 |
 | `chekhovsgun import <file>` | 从 json/jsonl/csv/txt 导入 |
 | `chekhovsgun search "查询"` | 搜自己的收藏 |
 | `chekhovsgun relate <url>` | 模拟：刷到这个视频会弹什么 |
-| `chekhovsgun serve [--open]` | 起本地服务 + 仪表盘 |
+| `chekhovsgun mark <url> --digested` | 标记已消化 / 静音 / 打标签 |
+| `chekhovsgun items --status active` | 列出还欠着的收藏 |
+| `chekhovsgun tray` | 后台常驻，托盘图标 |
+| `chekhovsgun serve [--open]` | 前台起服务 + 仪表盘 |
 | `chekhovsgun reindex` | 换了 embedding 后重建向量 |
 
 ---
@@ -285,13 +346,33 @@ pytest tests/test_relevance.py -v   # 检索质量的黄金集回归
 
 ---
 
+## 打包
+
+```bash
+pip install -e ".[tray]" pyinstaller
+pyinstaller chekhovsgun.spec        # → dist/ChekhovsGun(.exe)
+```
+
+打出来的单文件双击就是托盘模式；带参数运行时它仍然是完整的 CLI
+（`ChekhovsGun.exe ingest --source bilibili`），所以一个二进制两用。
+打 tag 推上去会由 CI 自动构建三个平台的产物和扩展压缩包。
+
 ## 已知限制
 
 - 默认的哈希编码器没有真正的语义。跨语言、同义改写这类场景建议换神经编码器（上面有）。
 - B 站 SESSDATA 约一个月过期；YouTube OAuth token 一小时过期，长期同步需要自己刷新。
-- 只有带字幕的视频才能做到"跳到讲这件事的那一秒"。没字幕的仍会按标题和简介入库。
+- Whisper 兜底需要本机有 ffmpeg，且是 CPU 密集的；第一次运行会下载模型。
+- YouTube 评论走 Data API，关闭评论的视频返回 403，这是正常的，会跳过。
 - 扩展在 YouTube Shorts 上可用，但竖屏信息流切换很快，默认 1.4 秒防抖可能仍偏敏感。
+- 桌面浏览器不是大多数人刷信息流的地方——手机端才是，那是另一个工程。
 
 ## License
 
 MIT
+
+## 参考
+
+设计上借鉴了两个项目：[藏知 Studio](https://github.com/Y-iyilin/zangzhi-studio)
+（评论作为一等内容源、本地语音转写、local-first 的定位）和
+[拾光](https://github.com/zihuv/shiguang)（打包成安装包分发、标签与整理这套库管理）。
+两者解决的问题都和本项目不同，但那几个判断是对的。

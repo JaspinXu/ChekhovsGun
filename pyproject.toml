@@ -33,10 +33,18 @@ dependencies = [
 youtube = ["youtube-transcript-api>=0.6"]
 # A real multilingual encoder; strongly recommended for mixed zh/en libraries.
 neural = ["sentence-transformers>=2.2"]
+# Local speech-to-text for videos that ship no subtitles at all.
+whisper = ["faster-whisper>=1.0", "yt-dlp>=2024.1"]
+# Background tray runner — no terminal needed.
+tray = ["pystray>=0.19", "Pillow>=10.0"]
 dev = ["pytest>=7.4", "pytest-cov>=4.1"]
 all = [
   "youtube-transcript-api>=0.6",
   "sentence-transformers>=2.2",
+  "faster-whisper>=1.0",
+  "yt-dlp>=2024.1",
+  "pystray>=0.19",
+  "Pillow>=10.0",
 ]
 
 [project.scripts]

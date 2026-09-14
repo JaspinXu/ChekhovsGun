@@ -38,6 +38,22 @@
         "duration": 30,
         "text": "残差连接加层归一化，让梯度能够穿过很深的网络，这是 Transformer 能堆到几十层的前提。"
       }
+    ],
+    "comments": [
+      {
+        "text": "补充一个视频里没讲的点：自注意力的 O(n^2) 说的是序列长度，不是参数量，很多人这里会混。后来的 FlashAttention 并没有降低这个复杂度，只是把显存访问优化了。",
+        "author": "机器学习小圈",
+        "likes": 428,
+        "replies": [
+          "对，FlashAttention 是 IO 优化不是算法优化，这个区别很关键"
+        ]
+      },
+      {
+        "text": "位置编码那段建议配合 RoPE 一起看，现在主流大模型基本都换成旋转位置编码了，正弦那套只在原始论文里用。",
+        "author": "NLP打工人",
+        "likes": 256,
+        "replies": []
+      }
     ]
   },
   {
@@ -68,6 +84,16 @@
         "start": 1500,
         "duration": 30,
         "text": "写入放大来自于每一次插入都可能触发页分裂，所以索引越多写入越慢，这是一个明确的取舍。"
+      }
+    ],
+    "comments": [
+      {
+        "text": "最左前缀那里补充一句：如果第一列用的是范围查询，后面的列也用不上索引了，这个比跳过第一列更隐蔽，线上踩过坑。",
+        "author": "DBA老张",
+        "likes": 512,
+        "replies": [
+          "+1，range 之后的列只能做 filter 不能做 seek"
+        ]
       }
     ]
   },
@@ -135,6 +161,14 @@
         "duration": 30,
         "text": "The real failure mode of pure vector search is exact terminology. Hybrid search with BM25 fixes the cases where embeddings blur a precise term."
       }
+    ],
+    "comments": [
+      {
+        "text": "One thing the video skips: HNSW index build time grows a lot with efConstruction, and you cannot change it after building. Pick it carefully or you will rebuild the whole index.",
+        "author": "search_eng",
+        "likes": 187,
+        "replies": []
+      }
     ]
   },
   {
@@ -165,6 +199,16 @@
         "start": 1200,
         "duration": 30,
         "text": "重排序模型看的是查询和文档的交互，代价是每个候选都要过一次模型，所以只适合放在召回之后。"
+      }
+    ],
+    "comments": [
+      {
+        "text": "分块那段说得对，但我的经验是先把文档结构利用起来比调 chunk size 有用得多。按标题层级切，效果直接上一个台阶。",
+        "author": "做过三个RAG项目",
+        "likes": 331,
+        "replies": [
+          "同意，结构化切分 > 固定长度切分"
+        ]
       }
     ]
   },
@@ -313,6 +357,14 @@
         "start": 1300,
         "duration": 30,
         "text": "生产上常见的做法是两个都开，用 RDB 做冷备，用 AOF 保证恢复时的数据完整性。"
+      }
+    ],
+    "comments": [
+      {
+        "text": "7.0 之后 AOF 改成 multi-part 了，重写时不再需要双倍磁盘空间，这个视频里没提到，老文章也基本没更新。",
+        "author": "缓存打杂",
+        "likes": 240,
+        "replies": []
       }
     ]
   },

@@ -140,3 +140,42 @@ def test_relate_explains_why_it_stayed_quiet(client):
     payload = client.get("/api/relate", params={"url": saved["url"]}).json()
     if not payload["fired"]:
         assert payload["reason_code"] == "self_saved"
+
+
+def test_mark_endpoint_updates_status_and_tags(client):
+    item_id = client.get("/api/items").json()["items"][0]["id"]
+    payload = client.post(
+        f"/api/items/{item_id}/mark",
+        json={"status": "digested", "add_tags": ["稍后复习"], "note": "看完了"},
+    ).json()
+    assert payload["item"]["status"] == "digested"
+    assert payload["item"]["user_tags"] == ["稍后复习"]
+    assert payload["item"]["note"] == "看完了"
+
+
+def test_mark_rejects_an_unknown_status(client):
+    item_id = client.get("/api/items").json()["items"][0]["id"]
+    assert client.post(f"/api/items/{item_id}/mark", json={"status": "nope"}).status_code == 422
+
+
+def test_mark_on_a_missing_item_is_404(client):
+    assert client.post("/api/items/nope:nope/mark", json={"status": "muted"}).status_code == 404
+
+
+def test_items_can_be_filtered_by_status_and_tag(client):
+    item_id = client.get("/api/items").json()["items"][0]["id"]
+    client.post(f"/api/items/{item_id}/mark", json={"status": "muted", "add_tags": ["x"]})
+    assert client.get("/api/items", params={"status": "muted"}).json()["count"] == 1
+    assert client.get("/api/items", params={"tag": "x"}).json()["count"] == 1
+
+
+def test_tags_endpoint(client):
+    item_id = client.get("/api/items").json()["items"][0]["id"]
+    client.post(f"/api/items/{item_id}/mark", json={"add_tags": ["检索"]})
+    assert client.get("/api/tags").json()["tags"] == [{"tag": "检索", "count": 1}]
+
+
+def test_status_exposes_the_digestion_metrics(client):
+    stats = client.get("/api/status").json()["stats"]
+    for key in ("items_digested", "by_status", "coverage", "fire_rate", "comment_chunks"):
+        assert key in stats

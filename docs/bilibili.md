@@ -44,6 +44,7 @@ Referer: https://www.bilibili.com/
 | 稍后再看 | `/x/v2/history/toview` | 否 |
 | 视频详情（拿 cid） | `/x/web-interface/view?bvid=` | 否 |
 | 字幕列表 | `/x/player/wbi/v2?aid=&cid=&bvid=` | 是 |
+| 评论（热度排序） | `/x/v2/reply/wbi/main?oid=&type=1&mode=3` | 是 |
 
 ## 字幕
 
@@ -82,3 +83,13 @@ Referer: https://www.bilibili.com/
 本项目把 Bilibili 客户端的最小请求间隔设为 400ms（约 2.5 req/s），
 并对 429/5xx 做指数退避。全量同步一个几百条的收藏夹大约需要几分钟，
 主要时间花在逐条取字幕上。
+
+## 评论
+
+`/x/v2/reply/wbi/main` 的 `mode=3` 是按热度排序，`oid` 用的是 aid 不是 bvid，
+`type=1` 表示视频稿件。返回结构里每条 `replies[]` 有 `content.message`、
+`member.uname`、`like`，以及嵌套的 `replies[]`（楼中楼）。
+
+实现上主评论和回复用的是不同的长度门槛：主评论短了基本是灌水，
+但回复短了往往恰恰是最有价值的那句（"对，是 O(n²) 不是 O(n)"），
+所以回复的门槛是主评论的一半。

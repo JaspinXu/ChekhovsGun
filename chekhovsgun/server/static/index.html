@@ -65,6 +65,20 @@
       <h2>弹药库 Library</h2>
       <span class="hint" id="library-count"></span>
     </div>
+    <div class="row filters">
+      <select id="library-status">
+        <option value="">全部状态</option>
+        <option value="active">待消化</option>
+        <option value="digested">已消化</option>
+        <option value="muted">已静音</option>
+      </select>
+      <select id="library-source">
+        <option value="">全部来源</option>
+        <option value="youtube">YouTube</option>
+        <option value="bilibili">Bilibili</option>
+      </select>
+      <select id="library-tag"><option value="">全部标签</option></select>
+    </div>
     <div id="library" class="library"></div>
     <button class="btn ghost wide" id="load-more" hidden>加载更多</button>
   </section>

@@ -147,6 +147,49 @@ class LLMConfig:
 
 
 @dataclass
+class WhisperConfig:
+    """Local speech-to-text fallback for videos without subtitles.
+
+    Off by default only in the sense that its dependencies are optional; when
+    they are installed it runs automatically for items whose adapter returned
+    no captions. See :mod:`chekhovsgun.transcribe`.
+    """
+
+    enabled: bool = True
+    model: str = "small"  # tiny | base | small | medium | large-v3
+    device: str = "auto"
+    compute_type: str = "int8"  # int8 on CPU, float16 on a GPU
+    language: str = ""  # empty = autodetect
+    beam_size: int = 1  # greedy: ~2x faster, and subtitles do not need beam search
+    #: Skip anything longer than this — a three-hour stream is not worth an hour of CPU.
+    max_duration_seconds: int = 2700
+    #: Wall-clock ceiling per sync, so an overnight job cannot run for days.
+    run_budget_seconds: int = 1800
+    #: yt-dlp cookie source for members-only or region-locked audio, e.g. "chrome".
+    cookies_from_browser: str = ""
+
+
+@dataclass
+class CommentsConfig:
+    """Top comments as a retrieval source.
+
+    Comment threads routinely carry what the video itself does not: corrections,
+    the missing prerequisite, a better explanation, timestamps to the part that
+    matters. They are plain text, so they cost one cheap request per item —
+    by far the best quality-per-byte of any content this project ingests.
+    """
+
+    enabled: bool = True
+    max_per_item: int = 15
+    #: Floors that drop "沙发", "first", and pure emoji without dropping substance.
+    min_likes: int = 3
+    min_chars: int = 15
+    #: Fold each thread's top replies into its chunk, keeping the exchange intact.
+    include_replies: bool = True
+    max_replies_per_thread: int = 2
+
+
+@dataclass
 class RetrievalConfig:
     chunk_chars: int = 420
     chunk_overlap_chars: int = 80
@@ -163,6 +206,9 @@ class RetrievalConfig:
     min_score_ratio: float = 0.45
     #: How many passages one saved item may contribute to the candidate list.
     max_chunks_per_item: int = 4
+    #: Items you marked 已消化 stop firing. They stay fully searchable — the
+    #: point is to stop being interrupted about them, not to hide them.
+    exclude_digested: bool = True
     exclude_same_video: bool = True
 
 
@@ -191,6 +237,8 @@ class Config:
     embedding: EmbeddingConfig = field(default_factory=EmbeddingConfig)
     llm: LLMConfig = field(default_factory=LLMConfig)
     retrieval: RetrievalConfig = field(default_factory=RetrievalConfig)
+    whisper: WhisperConfig = field(default_factory=WhisperConfig)
+    comments: CommentsConfig = field(default_factory=CommentsConfig)
     server: ServerConfig = field(default_factory=ServerConfig)
     request_timeout: float = 20.0
     user_agent: str = (
@@ -287,6 +335,25 @@ def load_config(home: str | Path | None = None) -> Config:
     ret = cfg.retrieval
     ret.top_k_items = _env_int("CHEKHOVSGUN_TOP_K_ITEMS", ret.top_k_items)
     ret.min_confidence = _env_float("CHEKHOVSGUN_MIN_CONFIDENCE", ret.min_confidence)
+    ret.exclude_digested = _env_bool("CHEKHOVSGUN_EXCLUDE_DIGESTED", ret.exclude_digested)
+
+    whisper = cfg.whisper
+    whisper.enabled = _env_bool("CHEKHOVSGUN_WHISPER_ENABLED", whisper.enabled)
+    whisper.model = _env("CHEKHOVSGUN_WHISPER_MODEL", default=whisper.model)
+    whisper.device = _env("CHEKHOVSGUN_WHISPER_DEVICE", default=whisper.device)
+    whisper.compute_type = _env("CHEKHOVSGUN_WHISPER_COMPUTE", default=whisper.compute_type)
+    whisper.language = _env("CHEKHOVSGUN_WHISPER_LANGUAGE", default=whisper.language)
+    whisper.max_duration_seconds = _env_int(
+        "CHEKHOVSGUN_WHISPER_MAX_DURATION", whisper.max_duration_seconds
+    )
+    whisper.run_budget_seconds = _env_int(
+        "CHEKHOVSGUN_WHISPER_BUDGET", whisper.run_budget_seconds
+    )
+
+    comments = cfg.comments
+    comments.enabled = _env_bool("CHEKHOVSGUN_COMMENTS_ENABLED", comments.enabled)
+    comments.max_per_item = _env_int("CHEKHOVSGUN_COMMENTS_MAX", comments.max_per_item)
+    comments.min_likes = _env_int("CHEKHOVSGUN_COMMENTS_MIN_LIKES", comments.min_likes)
 
     srv = cfg.server
     srv.host = _env("CHEKHOVSGUN_HOST", default=srv.host)

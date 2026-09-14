@@ -18,6 +18,7 @@ YouTube 把「列出你收藏了什么」和「拿到字幕」放在了两个完
 | --- | --- | --- |
 | 播放列表内容 | `playlistItems.list?part=snippet,contentDetails` | 1 / 页（50 条） |
 | 视频详情 | `videos.list?part=snippet,contentDetails,statistics` | 1 / 50 个 id |
+| 评论 | `commentThreads.list?videoId=&order=relevance` | 1 / 视频 |
 
 默认配额是每天 10000 单位，对个人收藏夹绰绰有余。
 `videos.list` 一次最多 50 个 id，所以代码里是批量拿的——
@@ -55,3 +56,9 @@ JSON 里的字符串含有大括号，正则会截断。
 - 年龄限制 / 地区限制的视频：`watch` 页面里没有 player response，抛错跳过。
 - 完全没有字幕轨：抛错跳过，条目仍会按标题和简介入库。
 - 请求过快：给网页那条路设了 350ms 最小间隔。API 那条路不受影响。
+
+## 评论
+
+`commentThreads.list` 的 `order=relevance` 就是 YouTube 自己的"热门评论"排序，
+一次一个配额单位，便宜到可以给每个收藏都跑一遍。关闭了评论的视频返回 403，
+这是正常情况，跳过即可，不算失败。

@@ -153,10 +153,19 @@
       background: rgba(224,164,88,.11);
       border-bottom: 1px solid rgba(128,128,128,.14);
     }
-    .item { display: block; padding: 11px 13px; text-decoration: none; color: inherit;
+    .item { position: relative; padding: 11px 13px;
             border-bottom: 1px solid rgba(128,128,128,.1); }
     .item:last-child { border-bottom: 0; }
     .item:hover { background: rgba(255,255,255,.04); }
+    .item .open { display: block; text-decoration: none; color: inherit; }
+    .item.done { opacity: .45; }
+    .digest {
+      margin-top: 8px; padding: 4px 10px; border-radius: 7px; cursor: pointer;
+      border: 1px solid rgba(128,128,128,.35); background: transparent; color: inherit;
+      font: inherit; font-size: 11.5px; opacity: .7;
+    }
+    .digest:hover { opacity: 1; border-color: #e0a458; color: #e0a458; }
+    .digest:disabled { cursor: default; opacity: .5; border-color: #56c271; color: #56c271; }
     .t { font-weight: 600; font-size: 13.5px; margin: 0 0 3px; }
     .meta { font-size: 11.5px; color: #9aa2b4; display: flex; gap: 6px; flex-wrap: wrap; }
     .src { padding: 0 6px; border-radius: 20px; border: 1px solid currentColor; font-size: 10.5px; }
@@ -223,17 +232,23 @@
               quote.text.slice(0, 150)
             )}</p>`
           : "";
+        const commentBadge = quote && quote.kind === "comment"
+          ? `<span class="src">评论</span>` : "";
         return `
-          <a class="item" href="${escapeHtml(hit.deep_link || item.url)}" target="_blank" rel="noopener"
-             data-item="${escapeHtml(item.id)}">
-            <p class="t">${escapeHtml(item.title)}</p>
-            <div class="meta">
-              <span class="src">${escapeHtml(SOURCE_LABEL[item.source] || item.source)}</span>
-              ${item.author ? `<span>${escapeHtml(item.author)}</span>` : ""}
-              ${item.folder ? `<span>· ${escapeHtml(item.folder)}</span>` : ""}
-            </div>
-            ${quoteHtml}
-          </a>`;
+          <div class="item">
+            <a class="open" href="${escapeHtml(hit.deep_link || item.url)}" target="_blank" rel="noopener">
+              <p class="t">${escapeHtml(item.title)}</p>
+              <div class="meta">
+                <span class="src">${escapeHtml(SOURCE_LABEL[item.source] || item.source)}</span>
+                ${commentBadge}
+                ${item.author ? `<span>${escapeHtml(item.author)}</span>` : ""}
+                ${item.folder ? `<span>· ${escapeHtml(item.folder)}</span>` : ""}
+              </div>
+              ${quoteHtml}
+            </a>
+            <button class="digest" data-item="${escapeHtml(item.id)}"
+                    title="标记为已消化，以后不再提醒">✓ 已消化</button>
+          </div>`;
       })
       .join("");
 
@@ -266,6 +281,22 @@
       chrome.runtime.sendMessage({ type: "mute", key: `${context.source}:${context.source_id}` });
       dismiss();
     });
+    // Marking something digested is the only action in this card that means the
+    // product worked, so it gets the prominent affordance and immediate feedback.
+    shadow.querySelectorAll(".digest").forEach((button) => {
+      button.addEventListener("click", async (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        button.disabled = true;
+        button.textContent = "已消化 ✓";
+        await send({ type: "mark", itemId: button.dataset.item, status: "digested" });
+        const card = button.closest(".item");
+        if (card) card.classList.add("done");
+        const remaining = shadow.querySelectorAll(".item:not(.done)").length;
+        if (!remaining) setTimeout(dismiss, 700);
+      });
+    });
+
     shadow.getElementById("bad").addEventListener("click", () => {
       chrome.runtime.sendMessage({
         type: "feedback",

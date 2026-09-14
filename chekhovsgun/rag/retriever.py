@@ -41,7 +41,7 @@ log = logging.getLogger(__name__)
 # boilerplate). Kept deliberately mild — rank-fusion scores are tightly packed,
 # so a larger spread here would let a weak title match outrank a passage that
 # was the top result of *both* retrievers.
-_KIND_WEIGHT = {"title": 1.06, "transcript": 1.0, "description": 0.92}
+_KIND_WEIGHT = {"title": 1.06, "transcript": 1.0, "comment": 0.95, "description": 0.92}
 
 
 def _rrf(ranked_ids: list[str], k: int) -> dict[str, float]:
@@ -286,9 +286,15 @@ class Retriever:
         return kept
 
     # ------------------------------------------------------------ live context
-    def relate(self, context: Context, *, limit: int | None = None) -> list[ItemHit]:
+    def relate(
+        self,
+        context: Context,
+        *,
+        limit: int | None = None,
+        exclude_items: set[str] | None = None,
+    ) -> list[ItemHit]:
         """The core "your bookmark is about to fire" query."""
-        exclude: set[str] = set()
+        exclude: set[str] = set(exclude_items or ())
         if self.config.exclude_same_video and context.source and context.source_id:
             exclude.add(f"{context.source}:{context.source_id}")
         return self.search_items(context.as_query(), limit=limit, exclude_items=exclude)

@@ -24,12 +24,12 @@ from typing import Any, Iterable, Sequence
 
 import numpy as np
 
-from ..models import Chunk, SavedItem
+from ..models import STATUS_ACTIVE, STATUSES, Chunk, SavedItem
 from .text import tokenize
 
 log = logging.getLogger(__name__)
 
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 3
 
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS items (
@@ -51,7 +51,14 @@ CREATE TABLE IF NOT EXISTS items (
     extra         TEXT NOT NULL DEFAULT '{}',
     content_hash  TEXT NOT NULL DEFAULT '',
     has_transcript INTEGER NOT NULL DEFAULT 0,
-    indexed_at    REAL NOT NULL DEFAULT 0
+    indexed_at    REAL NOT NULL DEFAULT 0,
+    -- User-owned columns. Ingest never writes these, so a re-sync can replace
+    -- every platform field above without touching the user's own work.
+    status        TEXT NOT NULL DEFAULT 'active',
+    user_tags     TEXT NOT NULL DEFAULT '[]',
+    note          TEXT NOT NULL DEFAULT '',
+    status_at     REAL NOT NULL DEFAULT 0,
+    transcript_source TEXT NOT NULL DEFAULT ''
 );
 CREATE INDEX IF NOT EXISTS idx_items_source ON items(source);
 CREATE INDEX IF NOT EXISTS idx_items_saved_at ON items(saved_at DESC);
@@ -90,6 +97,19 @@ CREATE INDEX IF NOT EXISTS idx_events_ts ON events(ts DESC);
 """
 
 
+def _col(row: sqlite3.Row, name: str, default: Any) -> Any:
+    """Read a column that may not exist yet on a not-yet-migrated row.
+
+    ``sqlite3.Row`` raises IndexError for an unknown key and is not a dict, so
+    neither ``row.get`` nor ``name in row`` does what you would expect.
+    """
+    try:
+        value = row[name]
+    except (IndexError, KeyError):
+        return default
+    return default if value is None else value
+
+
 def _row_to_item(row: sqlite3.Row) -> SavedItem:
     return SavedItem(
         source=row["source"],
@@ -107,6 +127,10 @@ def _row_to_item(row: sqlite3.Row) -> SavedItem:
         lang=row["lang"],
         tags=json.loads(row["tags"] or "[]"),
         extra=json.loads(row["extra"] or "{}"),
+        status=_col(row, "status", STATUS_ACTIVE) or STATUS_ACTIVE,
+        user_tags=json.loads(_col(row, "user_tags", "[]") or "[]"),
+        note=_col(row, "note", ""),
+        transcript_source=_col(row, "transcript_source", ""),
     )
 
 
@@ -232,6 +256,21 @@ class Store:
                 [(" ".join(tokenize(row["text"])), row["id"]) for row in rows],
             )
 
+        item_columns = {
+            row["name"] for row in self._conn.execute("PRAGMA table_info(items)").fetchall()
+        }
+        for column, ddl in (
+            ("status", "TEXT NOT NULL DEFAULT 'active'"),
+            ("user_tags", "TEXT NOT NULL DEFAULT '[]'"),
+            ("note", "TEXT NOT NULL DEFAULT ''"),
+            ("status_at", "REAL NOT NULL DEFAULT 0"),
+            ("transcript_source", "TEXT NOT NULL DEFAULT ''"),
+        ):
+            if column not in item_columns:
+                log.info("migrating index: adding items.%s", column)
+                self._conn.execute(f"ALTER TABLE items ADD COLUMN {column} {ddl}")
+        self._conn.execute("CREATE INDEX IF NOT EXISTS idx_items_status ON items(status)")
+
     # ------------------------------------------------------------- lifecycle
     def close(self) -> None:
         with self._lock:
@@ -267,14 +306,28 @@ class Store:
         return row["value"] if row else default
 
     # ----------------------------------------------------------------- items
-    def upsert_item(self, item: SavedItem, *, content_hash: str = "", has_transcript: bool = False) -> None:
+    def upsert_item(
+        self,
+        item: SavedItem,
+        *,
+        content_hash: str = "",
+        has_transcript: bool = False,
+        transcript_source: str = "",
+    ) -> None:
+        """Insert or refresh the platform-owned fields of an item.
+
+        The ON CONFLICT clause deliberately omits ``status``, ``user_tags`` and
+        ``note``: those belong to the user, and a nightly re-sync must never
+        resurrect something they marked 已消化.
+        """
         with self._lock:
             self._conn.execute(
                 """
                 INSERT INTO items (id, source, source_id, title, url, author, author_id,
                                    description, thumbnail, duration, published_at, saved_at,
-                                   folder, lang, tags, extra, content_hash, has_transcript, indexed_at)
-                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+                                   folder, lang, tags, extra, content_hash, has_transcript,
+                                   indexed_at, transcript_source)
+                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
                 ON CONFLICT(id) DO UPDATE SET
                     title=excluded.title, url=excluded.url, author=excluded.author,
                     author_id=excluded.author_id, description=excluded.description,
@@ -282,7 +335,8 @@ class Store:
                     published_at=excluded.published_at, saved_at=excluded.saved_at,
                     folder=excluded.folder, lang=excluded.lang, tags=excluded.tags,
                     extra=excluded.extra, content_hash=excluded.content_hash,
-                    has_transcript=excluded.has_transcript, indexed_at=excluded.indexed_at
+                    has_transcript=excluded.has_transcript, indexed_at=excluded.indexed_at,
+                    transcript_source=excluded.transcript_source
                 """,
                 (
                     item.id, item.source, item.source_id, item.title, item.url, item.author,
@@ -290,11 +344,74 @@ class Store:
                     float(item.published_at), float(item.saved_at), item.folder, item.lang,
                     json.dumps(item.tags, ensure_ascii=False),
                     json.dumps(item.extra, ensure_ascii=False),
-                    content_hash, int(has_transcript), time.time(),
+                    content_hash, int(has_transcript), time.time(), transcript_source,
                 ),
             )
             self._conn.commit()
             self._touch()
+
+    def set_item_status(
+        self,
+        item_id: str,
+        *,
+        status: str | None = None,
+        add_tags: Sequence[str] | None = None,
+        remove_tags: Sequence[str] | None = None,
+        note: str | None = None,
+    ) -> SavedItem | None:
+        """Update the user-owned fields. Returns the item, or None if unknown."""
+        with self._lock:
+            row = self._conn.execute("SELECT * FROM items WHERE id=?", (item_id,)).fetchone()
+            if row is None:
+                return None
+            if status is not None and status not in STATUSES:
+                raise ValueError(f"unknown status {status!r}; expected one of {STATUSES}")
+
+            tags = json.loads(row["user_tags"] or "[]")
+            for tag in add_tags or ():
+                tag = tag.strip()
+                if tag and tag not in tags:
+                    tags.append(tag)
+            for tag in remove_tags or ():
+                if tag in tags:
+                    tags.remove(tag)
+
+            self._conn.execute(
+                "UPDATE items SET status=?, user_tags=?, note=?, status_at=? WHERE id=?",
+                (
+                    status if status is not None else row["status"],
+                    json.dumps(tags, ensure_ascii=False),
+                    note if note is not None else row["note"],
+                    time.time(),
+                    item_id,
+                ),
+            )
+            self._conn.commit()
+            self._touch()
+        return self.get_item(item_id)
+
+    def item_ids_with_status(self, statuses: Sequence[str]) -> set[str]:
+        """Ids to keep out of the popup. Small, and read on every relate call."""
+        statuses = [s for s in statuses if s]
+        if not statuses:
+            return set()
+        placeholders = ",".join("?" * len(statuses))
+        with self._lock:
+            rows = self._conn.execute(
+                f"SELECT id FROM items WHERE status IN ({placeholders})", statuses
+            ).fetchall()
+        return {row["id"] for row in rows}
+
+    def all_user_tags(self) -> list[tuple[str, int]]:
+        """Every user tag with its item count, most used first."""
+        counts: Counter[str] = Counter()
+        with self._lock:
+            rows = self._conn.execute(
+                "SELECT user_tags FROM items WHERE user_tags != '[]'"
+            ).fetchall()
+        for row in rows:
+            counts.update(json.loads(row["user_tags"] or "[]"))
+        return counts.most_common()
 
     def get_item(self, item_id: str) -> SavedItem | None:
         with self._lock:
@@ -329,7 +446,14 @@ class Store:
         return {row["id"]: row["content_hash"] for row in rows}
 
     def list_items(
-        self, *, source: str = "", query: str = "", limit: int = 100, offset: int = 0
+        self,
+        *,
+        source: str = "",
+        query: str = "",
+        status: str = "",
+        tag: str = "",
+        limit: int = 100,
+        offset: int = 0,
     ) -> list[SavedItem]:
         sql = "SELECT * FROM items"
         clauses: list[str] = []
@@ -337,6 +461,14 @@ class Store:
         if source:
             clauses.append("source=?")
             params.append(source)
+        if status:
+            clauses.append("status=?")
+            params.append(status)
+        if tag:
+            # user_tags is a JSON array; a LIKE on the quoted form is exact
+            # enough here and needs no JSON1 extension.
+            clauses.append("user_tags LIKE ?")
+            params.append(f'%"{tag}"%')
         if query:
             clauses.append("(title LIKE ? OR author LIKE ? OR description LIKE ?)")
             like = f"%{query}%"
@@ -550,6 +682,18 @@ class Store:
             fired = self._conn.execute(
                 "SELECT COUNT(DISTINCT item_id) c FROM events WHERE kind='fired'"
             ).fetchone()["c"]
+            by_status = {
+                row["status"]: row["c"]
+                for row in self._conn.execute(
+                    "SELECT status, COUNT(*) c FROM items GROUP BY status"
+                ).fetchall()
+            }
+            comment_chunks = self._conn.execute(
+                "SELECT COUNT(*) c FROM chunks WHERE kind='comment'"
+            ).fetchone()["c"]
+            transcribed = self._conn.execute(
+                "SELECT COUNT(*) c FROM items WHERE transcript_source='whisper'"
+            ).fetchone()["c"]
             last = self._conn.execute("SELECT MAX(indexed_at) m FROM items").fetchone()["m"]
         return {
             "items": items,
@@ -557,7 +701,14 @@ class Store:
             "items_with_transcript": with_transcript,
             "by_source": by_source,
             "items_fired": fired,
-            "coverage": round(fired / items, 4) if items else 0.0,
+            "by_status": by_status,
+            "items_digested": by_status.get("digested", 0),
+            "comment_chunks": comment_chunks,
+            "items_transcribed": transcribed,
+            # The honest success metric: not how often the popup fired, but how
+            # many saves the user actually went back and finished.
+            "coverage": round(by_status.get("digested", 0) / items, 4) if items else 0.0,
+            "fire_rate": round(fired / items, 4) if items else 0.0,
             "last_indexed_at": last or 0.0,
             "embedding_signature": self.get_meta("embedding_signature"),
             "db_path": str(self.db_path),

@@ -28,7 +28,7 @@ jobs:
           pip install ruff
 
       - name: Lint
-        run: ruff check chekhovsgun tests scripts
+        run: ruff check chekhovsgun tests scripts packaging
 
       - name: Test
         run: pytest -q
@@ -39,3 +39,7 @@ jobs:
           python -m chekhovsgun demo
           python -m chekhovsgun status
           python -m chekhovsgun search "RAG 分块"
+          # comment-only facts must be retrievable, and marking must stick
+          python -m chekhovsgun search "FlashAttention 复杂度"
+          python -m chekhovsgun mark "https://www.bilibili.com/video/BV1xx411c7mD" --digested
+          python -m chekhovsgun items --status digested

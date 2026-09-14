@@ -22,7 +22,7 @@ from typing import Any, Iterable, Iterator
 
 from ..config import Config
 from ..http import HttpClient
-from ..models import SavedItem, Segment
+from ..models import Comment, SavedItem, Segment
 from .base import AdapterError, SourceAdapter
 
 log = logging.getLogger(__name__)
@@ -377,6 +377,67 @@ class YouTubeAdapter(SourceAdapter):
             duration = float(event.get("dDurationMs", 0)) / 1000.0
             segments.append(Segment(text=text, start=start, end=start + duration))
         return segments
+
+    # ---------------------------------------------------------------- comments
+    def fetch_comments(self, item: SavedItem) -> Iterator[Comment]:
+        """Top comment threads via ``commentThreads.list``.
+
+        ``order=relevance`` is YouTube's own "top comments" ranking, and the
+        call costs one quota unit — cheap enough to run for every saved video.
+        Comments disabled on a video returns 403, which is normal, not an error.
+        """
+        settings = self.config.comments
+        if not settings.enabled:
+            return iter(())
+        try:
+            payload = self._api_get(
+                "commentThreads",
+                {
+                    "part": "snippet,replies",
+                    "videoId": item.source_id,
+                    "order": "relevance",
+                    "maxResults": min(50, max(settings.max_per_item * 2, 20)),
+                    "textFormat": "plainText",
+                },
+            )
+        except AdapterError as exc:
+            log.debug("comments unavailable for %s: %s", item.source_id, exc)
+            return iter(())
+        return iter(self._parse_comment_threads(payload.get("items", []), settings))
+
+    @staticmethod
+    def _parse_comment_threads(threads: list[dict], settings) -> list[Comment]:
+        out: list[Comment] = []
+        for thread in threads:
+            top = (
+                (thread.get("snippet") or {}).get("topLevelComment", {}).get("snippet", {})
+            )
+            text = (top.get("textOriginal") or top.get("textDisplay") or "").strip()
+            likes = int(top.get("likeCount", 0) or 0)
+            if len(text) < settings.min_chars or likes < settings.min_likes:
+                continue
+            sub: list[str] = []
+            if settings.include_replies:
+                # See the note in the Bilibili adapter: replies are corroboration
+                # and are legitimately terse, so they clear a lower bar.
+                reply_floor = max(6, settings.min_chars // 2)
+                for child in ((thread.get("replies") or {}).get("comments") or [])[
+                    : settings.max_replies_per_thread
+                ]:
+                    snippet = child.get("snippet") or {}
+                    reply = (snippet.get("textOriginal") or snippet.get("textDisplay") or "").strip()
+                    if len(reply) >= reply_floor:
+                        sub.append(reply)
+            out.append(
+                Comment(
+                    text=text,
+                    author=top.get("authorDisplayName", ""),
+                    likes=likes,
+                    replies=sub,
+                )
+            )
+        out.sort(key=lambda c: -c.likes)
+        return out[: settings.max_per_item]
 
     # --------------------------------------------------------------- URL match
     @classmethod

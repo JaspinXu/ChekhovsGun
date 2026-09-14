@@ -1,0 +1,82 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            artifact: ChekhovsGun-windows
+            binary: dist/ChekhovsGun.exe
+          - os: macos-latest
+            artifact: ChekhovsGun-macos
+            binary: dist/ChekhovsGun
+          - os: ubuntu-latest
+            artifact: ChekhovsGun-linux
+            binary: dist/ChekhovsGun
+
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[tray]"
+          pip install pyinstaller
+
+      - name: Build
+        run: pyinstaller --noconfirm chekhovsgun.spec
+
+      - name: Smoke test the binary
+        shell: bash
+        run: |
+          # Arguments bypass the tray, so the packaged build is testable in CI.
+          "${{ matrix.binary }}" --version
+          "${{ matrix.binary }}" demo
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: ${{ matrix.binary }}
+
+  extension:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Zip the unpacked extension
+        run: |
+          cd extension
+          zip -r ../chekhovsgun-extension.zip . -x '*.DS_Store'
+      - uses: actions/upload-artifact@v4
+        with:
+          name: chekhovsgun-extension
+          path: chekhovsgun-extension.zip
+
+  publish:
+    needs: [build, extension]
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+      - name: Publish release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: artifacts/**/*
+          generate_release_notes: true

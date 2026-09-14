@@ -60,6 +60,15 @@ class IngestRequest(BaseModel):
     fetch_transcripts: bool = True
 
 
+class MarkRequest(BaseModel):
+    """Update the user-owned fields of a saved item."""
+
+    status: str | None = None  # active | digested | muted
+    add_tags: list[str] = Field(default_factory=list)
+    remove_tags: list[str] = Field(default_factory=list)
+    note: str | None = None
+
+
 class FeedbackRequest(BaseModel):
     item_id: str = ""
     context_id: str = ""
@@ -194,11 +203,35 @@ def create_app(config: Config | None = None, engine: Engine | None = None) -> Fa
     def list_items(
         source: str = "",
         q: str = "",
+        status: str = "",
+        tag: str = "",
         limit: int = Query(50, ge=1, le=200),
         offset: int = Query(0, ge=0),
     ) -> dict[str, Any]:
-        items = engine.store.list_items(source=source, query=q, limit=limit, offset=offset)
+        items = engine.store.list_items(
+            source=source, query=q, status=status, tag=tag, limit=limit, offset=offset
+        )
         return {"count": len(items), "items": [item.to_dict() for item in items]}
+
+    @app.get("/api/tags")
+    def list_tags() -> dict[str, Any]:
+        return {"tags": [{"tag": t, "count": c} for t, c in engine.store.all_user_tags()]}
+
+    @app.post("/api/items/{item_id:path}/mark")
+    def mark_item(item_id: str, request: MarkRequest) -> dict[str, Any]:
+        try:
+            updated = engine.mark(
+                item_id,
+                status=request.status,
+                add_tags=request.add_tags,
+                remove_tags=request.remove_tags,
+                note=request.note,
+            )
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+        if updated is None:
+            raise HTTPException(status_code=404, detail=f"no such item: {item_id}")
+        return {"item": updated}
 
     @app.get("/api/items/{item_id:path}")
     def get_item(item_id: str) -> dict[str, Any]:

@@ -102,7 +102,12 @@ def cmd_status(engine: Engine, args: argparse.Namespace) -> int:
     print(f"  chunks          {stats['chunks']}")
     by_source = ", ".join(f"{k}={v}" for k, v in sorted(stats["by_source"].items())) or "—"
     print(f"  by source       {by_source}")
-    print(f"  已开火 fired     {stats['items_fired']}  ({stats['coverage'] * 100:.1f}% of library)")
+    print(f"  已开火 fired     {stats['items_fired']}  ({stats['fire_rate'] * 100:.1f}% of library)")
+    print(f"  已消化 digested  {stats['items_digested']}  ({stats['coverage'] * 100:.1f}% — the number that matters)")
+    if stats.get("comment_chunks"):
+        print(f"  评论片段         {stats['comment_chunks']}")
+    if stats.get("items_transcribed"):
+        print(f"  whisper 转写     {stats['items_transcribed']}")
     print(f"  embedding       {status['embedding']}")
     llm = status["llm"]
     print(f"  llm             {llm['model'] or 'extractive fallback (no API key)'}")
@@ -122,10 +127,14 @@ def cmd_ingest(engine: Engine, args: argparse.Namespace) -> int:
 
     def progress(stage: str, payload: dict) -> None:
         nonlocal last_report
-        if stage == "item" and time.time() - last_report > 0.4:
+        title = textwrap.shorten(payload.get("title", ""), width=52, placeholder="…")
+        if stage == "transcribing":
+            # Whisper takes minutes; without this the CLI looks frozen.
+            print(f"\r  {style.dim('转写中'):<8} {title:<62}", end="", flush=True)
             last_report = time.time()
-            title = textwrap.shorten(payload.get("title", ""), width=60, placeholder="…")
-            print(f"\r  {payload.get('seen', 0):>5}  {title:<62}", end="", flush=True)
+        elif stage == "item" and time.time() - last_report > 0.4:
+            last_report = time.time()
+            print(f"\r  {payload.get('seen', 0):>5}    {title:<62}", end="", flush=True)
 
     total_failed = 0
     for adapter in engine.adapters(sources):
@@ -139,6 +148,8 @@ def cmd_ingest(engine: Engine, args: argparse.Namespace) -> int:
             limit=args.limit,
             force=args.force,
             fetch_transcripts=not args.no_transcripts,
+            fetch_comments=not args.no_comments,
+            transcribe=args.whisper,
             progress=progress,
         )
         print("\r" + " " * 74, end="\r")
@@ -146,7 +157,12 @@ def cmd_ingest(engine: Engine, args: argparse.Namespace) -> int:
             f"  seen {report.seen} · new {style.green(str(report.added))} · updated {report.updated}"
             f" · unchanged {report.skipped} · failed {style.red(str(report.failed)) if report.failed else 0}"
         )
-        print(style.dim(f"  {report.with_transcript} with transcript, {report.chunks} chunks, {report.duration:.1f}s"))
+        extras = [f"{report.with_transcript} with transcript"]
+        if report.transcribed:
+            extras.append(f"{report.transcribed} via whisper")
+        if report.with_comments:
+            extras.append(f"{report.with_comments} with comments")
+        print(style.dim(f"  {', '.join(extras)}, {report.chunks} chunks, {report.duration:.1f}s"))
         for error in report.errors[:5]:
             print(style.red(f"  ! {error}"))
         total_failed += report.failed
@@ -233,11 +249,54 @@ def cmd_relate(engine: Engine, args: argparse.Namespace) -> int:
 
 
 def cmd_items(engine: Engine, args: argparse.Namespace) -> int:
-    items = engine.store.list_items(source=args.source, query=args.query, limit=args.limit)
+    items = engine.store.list_items(
+        source=args.source, query=args.query, status=args.status, tag=args.tag, limit=args.limit
+    )
+    marks = {"digested": style.green("✓"), "muted": style.yellow("⊘"), "active": " "}
     for item in items:
-        print(f"  {style.bold(item.title)}")
-        print(style.dim(f"    {item.source} · {item.author} · {item.folder} · {item.url}"))
+        print(f"  {marks.get(item.status, ' ')} {style.bold(item.title)}")
+        meta = " · ".join(
+            part for part in (item.source, item.author, item.folder, *item.user_tags) if part
+        )
+        print(style.dim(f"    {meta}"))
+        print(style.dim(f"    {item.id}"))
     print(style.dim(f"\n  {len(items)} item(s)"))
+    return 0
+
+
+def cmd_mark(engine: Engine, args: argparse.Namespace) -> int:
+    """Mark a save as digested / muted, or tag it."""
+    target = args.target
+    if target.startswith("http"):
+        from .adapters import detect_source
+
+        source, source_id = detect_source(target)
+        if not source:
+            print(style.red(f"not a recognised url: {target}"), file=sys.stderr)
+            return 2
+        target = f"{source}:{source_id}"
+
+    status = None
+    for flag, value in (("digested", "digested"), ("muted", "muted"), ("active", "active")):
+        if getattr(args, flag, False):
+            status = value
+    updated = engine.mark(
+        target,
+        status=status,
+        add_tags=args.tag or [],
+        remove_tags=args.untag or [],
+        note=args.note,
+    )
+    if updated is None:
+        print(style.red(f"no such item: {target}"), file=sys.stderr)
+        return 1
+    labels = {"digested": style.green("已消化"), "muted": style.yellow("已静音"),
+              "active": "待消化"}
+    print(f"  {style.bold(updated['title'])}")
+    print(style.dim(f"    {labels.get(updated['status'], updated['status'])}"
+                    f"{' · ' + ', '.join(updated['user_tags']) if updated['user_tags'] else ''}"))
+    if updated["note"]:
+        print(style.dim(f"    {updated['note']}"))
     return 0
 
 
@@ -274,6 +333,25 @@ def cmd_serve(engine: Engine, args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_tray(engine: Engine, args: argparse.Namespace) -> int:
+    """Run in the background with a tray icon — no terminal required."""
+    from .tray import TrayUnavailable, run_tray
+
+    config = engine.config
+    if args.port:
+        config.server.port = args.port
+    print(style.bold("ChekhovsGun 正在后台运行"))
+    print(f"  仪表盘  {style.cyan(f'http://{config.server.host}:{config.server.port}/')}")
+    print(style.dim("  托盘图标右键可以同步收藏或退出"))
+    try:
+        run_tray(config, open_browser=not args.no_open)
+    except TrayUnavailable as exc:
+        print(style.red(f"error: {exc}"), file=sys.stderr)
+        print(style.dim("  你也可以直接用 `chekhovsgun serve`，功能完全一样。"))
+        return 2
+    return 0
+
+
 def cmd_config(engine: Engine, args: argparse.Namespace) -> int:
     print(json.dumps(engine.config.redacted(), ensure_ascii=False, indent=2, default=str))
     return 0
@@ -290,7 +368,8 @@ def build_parser() -> argparse.ArgumentParser:
             quick start:
               chekhovsgun demo                     seed sample data and see it work
               chekhovsgun ingest --source bilibili  sync your 收藏夹 (needs SESSDATA)
-              chekhovsgun serve --open              dashboard + the API the extension calls
+              chekhovsgun tray                      run in the background, no terminal needed
+              chekhovsgun serve --open              same thing, in the foreground
             """
         ),
     )
@@ -308,6 +387,11 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--limit", type=int, help="stop after N items (useful for a first test)")
     p.add_argument("--force", action="store_true", help="re-index even if unchanged")
     p.add_argument("--no-transcripts", action="store_true", help="metadata only, much faster")
+    p.add_argument("--no-comments", action="store_true", help="skip comment threads")
+    p.add_argument("--whisper", dest="whisper", action="store_true", default=None,
+                   help="force local transcription for videos without subtitles")
+    p.add_argument("--no-whisper", dest="whisper", action="store_false",
+                   help="never run local transcription")
     p.set_defaults(func=cmd_ingest)
 
     p = sub.add_parser("import", help="import saves from a json/jsonl/csv/txt file")
@@ -336,8 +420,21 @@ def build_parser() -> argparse.ArgumentParser:
     p = sub.add_parser("items", help="list indexed items")
     p.add_argument("--source", choices=sorted(REGISTRY), default="")
     p.add_argument("--query", default="")
+    p.add_argument("--status", choices=["active", "digested", "muted"], default="")
+    p.add_argument("--tag", default="")
     p.add_argument("--limit", type=int, default=30)
     p.set_defaults(func=cmd_items)
+
+    p = sub.add_parser("mark", help="mark a save as digested/muted, or tag it")
+    p.add_argument("target", help="an item id (source:id) or the video url")
+    group = p.add_mutually_exclusive_group()
+    group.add_argument("--digested", action="store_true", help="你看完了，停止提醒（计入覆盖率）")
+    group.add_argument("--muted", action="store_true", help="别再拿这个烦我（不计入覆盖率）")
+    group.add_argument("--active", action="store_true", help="放回待消化")
+    p.add_argument("--tag", action="append", help="add a tag (repeatable)")
+    p.add_argument("--untag", action="append", help="remove a tag (repeatable)")
+    p.add_argument("--note", help="attach a note")
+    p.set_defaults(func=cmd_mark)
 
     p = sub.add_parser("reindex", help="re-embed everything (after changing backend)")
     p.set_defaults(func=cmd_reindex)
@@ -348,6 +445,11 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--open", action="store_true", help="open the dashboard in a browser")
     p.add_argument("--log-level", default="info")
     p.set_defaults(func=cmd_serve)
+
+    p = sub.add_parser("tray", help="run in the background with a tray icon")
+    p.add_argument("--port", type=int)
+    p.add_argument("--no-open", action="store_true", help="do not open the dashboard on start")
+    p.set_defaults(func=cmd_tray)
 
     p = sub.add_parser("config", help="print the effective configuration")
     p.set_defaults(func=cmd_config)

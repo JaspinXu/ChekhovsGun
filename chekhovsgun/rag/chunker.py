@@ -10,7 +10,7 @@ every chunk keeps the timestamp that lets us deep-link into the video.
 from __future__ import annotations
 
 from ..config import RetrievalConfig
-from ..models import Chunk, SavedItem, Segment
+from ..models import Chunk, Comment, SavedItem, Segment
 from .text import normalize, sentences
 
 
@@ -116,10 +116,30 @@ def chunk_text(
     return chunks
 
 
+def chunk_comments(
+    item_id: str,
+    comments: list[Comment],
+    *,
+    max_chars: int = 600,
+    start_ordinal: int = 0,
+) -> list[Chunk]:
+    """One chunk per comment thread, most-liked first."""
+    chunks: list[Chunk] = []
+    ordinal = start_ordinal
+    for comment in comments:
+        text = _clean(comment.as_passage().replace("\n", " "))[:max_chars]
+        if len(normalize(text)) < 8:
+            continue
+        chunks.append(Chunk(item_id=item_id, ordinal=ordinal, text=text, kind="comment"))
+        ordinal += 1
+    return chunks
+
+
 def chunk_item(
     item: SavedItem,
     segments: list[Segment] | None = None,
     config: RetrievalConfig | None = None,
+    comments: list[Comment] | None = None,
 ) -> list[Chunk]:
     """Build the full chunk set for one saved item.
 
@@ -153,16 +173,19 @@ def chunk_item(
         ordinal += len(desc_chunks)
 
     if segments:
-        chunks.extend(
-            chunk_segments(
-                item.id,
-                segments,
-                max_chars=cfg.chunk_chars,
-                overlap_chars=cfg.chunk_overlap_chars,
-                max_seconds=cfg.chunk_max_seconds,
-                start_ordinal=ordinal,
-            )
+        transcript_chunks = chunk_segments(
+            item.id,
+            segments,
+            max_chars=cfg.chunk_chars,
+            overlap_chars=cfg.chunk_overlap_chars,
+            max_seconds=cfg.chunk_max_seconds,
+            start_ordinal=ordinal,
         )
+        chunks.extend(transcript_chunks)
+        ordinal += len(transcript_chunks)
+
+    if comments:
+        chunks.extend(chunk_comments(item.id, comments, start_ordinal=ordinal))
 
     # Guard against duplicate ids when the same text repeats verbatim
     # (very common in auto-generated subtitles).

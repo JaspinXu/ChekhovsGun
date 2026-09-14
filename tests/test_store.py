@@ -179,3 +179,48 @@ def test_revision_counter_advances_on_writes(tmp_path):
         before = store.revision
         store.upsert_item(_item())
         assert store.revision > before
+
+
+def test_migrates_an_older_index_in_place(tmp_path):
+    """A v2 index in the wild must keep working after an upgrade."""
+    import sqlite3
+
+    path = tmp_path / "old.db"
+    legacy = sqlite3.connect(path)
+    legacy.executescript(
+        """
+        CREATE TABLE items (
+            id TEXT PRIMARY KEY, source TEXT, source_id TEXT, title TEXT, url TEXT,
+            author TEXT DEFAULT '', author_id TEXT DEFAULT '', description TEXT DEFAULT '',
+            thumbnail TEXT DEFAULT '', duration INTEGER DEFAULT 0, published_at REAL DEFAULT 0,
+            saved_at REAL DEFAULT 0, folder TEXT DEFAULT '', lang TEXT DEFAULT '',
+            tags TEXT DEFAULT '[]', extra TEXT DEFAULT '{}', content_hash TEXT DEFAULT '',
+            has_transcript INTEGER DEFAULT 0, indexed_at REAL DEFAULT 0
+        );
+        CREATE TABLE chunks (
+            id TEXT PRIMARY KEY, item_id TEXT, ordinal INTEGER DEFAULT 0, text TEXT,
+            start REAL DEFAULT 0, end REAL DEFAULT 0, kind TEXT DEFAULT 'transcript',
+            embedding BLOB, dim INTEGER DEFAULT 0
+        );
+        CREATE TABLE meta (key TEXT PRIMARY KEY, value TEXT);
+        CREATE TABLE events (
+            id INTEGER PRIMARY KEY AUTOINCREMENT, ts REAL, kind TEXT,
+            source TEXT DEFAULT '', item_id TEXT DEFAULT '', payload TEXT DEFAULT '{}'
+        );
+        INSERT INTO items (id, source, source_id, title, url)
+            VALUES ('youtube:old', 'youtube', 'old', '旧索引里的条目', 'https://x');
+        INSERT INTO chunks (id, item_id, ordinal, text)
+            VALUES ('c1', 'youtube:old', 0, '注意力机制的旧片段');
+        """
+    )
+    legacy.commit()
+    legacy.close()
+
+    with Store(path) as store:
+        item = store.get_item("youtube:old")
+        assert item is not None
+        assert item.status == "active" and item.user_tags == [] and item.note == ""
+        # tokens were backfilled by the migration, so lexical search works at once
+        assert store.lexical_search("注意力", 5)
+        assert store.set_item_status("youtube:old", status="digested") is not None
+        assert store.item_ids_with_status(["digested"]) == {"youtube:old"}

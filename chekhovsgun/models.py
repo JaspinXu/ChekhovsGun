@@ -36,6 +36,38 @@ class Segment:
 
 
 @dataclass(slots=True)
+class Comment:
+    """One top-level comment thread, with its best replies folded in.
+
+    Threads are kept whole rather than split per reply: a reply like "其实是反
+    过来的" is meaningless without the comment it answers, and splitting them
+    would produce two chunks that each retrieve badly.
+    """
+
+    text: str
+    author: str = ""
+    likes: int = 0
+    replies: list[str] = field(default_factory=list)
+
+    def as_passage(self) -> str:
+        parts = [self.text.strip()]
+        for reply in self.replies:
+            reply = reply.strip()
+            if reply:
+                parts.append(f"↳ {reply}")
+        return "\n".join(parts)
+
+
+#: Item lifecycle. ``digested`` and ``muted`` both stop an item from firing;
+#: the difference is what the user meant, and only ``digested`` counts as the
+#: product actually having worked.
+STATUS_ACTIVE = "active"
+STATUS_DIGESTED = "digested"
+STATUS_MUTED = "muted"
+STATUSES = (STATUS_ACTIVE, STATUS_DIGESTED, STATUS_MUTED)
+
+
+@dataclass(slots=True)
 class SavedItem:
     """Something the user bookmarked in a source app."""
 
@@ -54,6 +86,14 @@ class SavedItem:
     lang: str = ""
     tags: list[str] = field(default_factory=list)
     extra: dict[str, Any] = field(default_factory=dict)
+    #: One of :data:`STATUSES`. Set by the user, never by ingest.
+    status: str = STATUS_ACTIVE
+    #: The user's own tags, kept separate from the platform's ``tags`` so a
+    #: re-sync can overwrite platform metadata without destroying their work.
+    user_tags: list[str] = field(default_factory=list)
+    note: str = ""
+    #: '' | 'captions' | 'whisper' | 'none' — where the transcript came from.
+    transcript_source: str = ""
 
     @property
     def id(self) -> str:

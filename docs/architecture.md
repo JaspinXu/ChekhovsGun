@@ -6,7 +6,9 @@ chekhovsgun/
 ├── config.py          环境变量 + config.toml + 默认值
 ├── http.py            带退避和限速的共享 HTTP 客户端
 ├── engine.py          门面：CLI 和服务端都只跟它打交道
-├── ingest.py          适配器 → 字幕 → 分块 → 向量 → 索引（增量）
+├── ingest.py          适配器 → 字幕/评论 → 分块 → 向量 → 索引（增量）
+├── transcribe.py      没有字幕时的本地 Whisper 兜底（挂在管线上，与来源无关）
+├── tray.py            托盘常驻，免终端
 ├── cli.py             命令行
 ├── adapters/
 │   ├── base.py        SourceAdapter 抽象：三个方法
@@ -23,6 +25,7 @@ chekhovsgun/
 ├── llm/explain.py     可选的解读生成，默认降级为原文摘录
 └── server/            FastAPI + 仪表盘
 extension/             MV3 浏览器扩展
+packaging/             PyInstaller 入口与图标
 ```
 
 ## 几个设计选择
@@ -45,6 +48,19 @@ extension/             MV3 浏览器扩展
 
 **UI 放在 shadow DOM 里。** YouTube 和 B 站都有很强的全局样式，
 影子树是保证卡片在两边长得一样、且不污染页面的唯一可靠方式。
+
+**转写为什么不在 adapter 里。** 它只需要一个 URL 就能工作，所以放在管线上，
+两个来源都自动拥有，以后加第三个来源时也是白送的。同理，它的开销是分钟级的，
+所以闸门（单视频时长上限、每次同步的总预算）也在这一层，而不是散落在各个 adapter。
+
+**用户列和平台列是分开的。** `status` / `user_tags` / `note` 由用户拥有，
+`upsert_item` 的 ON CONFLICT 子句刻意不更新它们——否则每晚一次同步就会把用户
+标记过"已消化"的东西全部复活。这条有测试钉着（`test_resync_preserves_the_users_own_columns`）。
+
+**迁移只能加列，不能在基础 schema 里引用新列。** 老库上 `CREATE TABLE IF NOT EXISTS`
+是空操作，如果基础 schema 里有一句 `CREATE INDEX ... ON items(status)`，
+那么在老库上它会因为列不存在而直接失败——所有新增索引都必须放在 `_migrate()` 里。
+这个坑有测试（`test_migrates_an_older_index_in_place`）。
 
 ## 检索链路
 

@@ -20,7 +20,7 @@ from typing import Any, Iterable, Iterator
 
 from ..config import Config
 from ..http import HttpClient
-from ..models import SavedItem, Segment
+from ..models import Comment, SavedItem, Segment
 from .base import AdapterError, SourceAdapter
 from .wbi import NAV_URL, WbiSigner
 
@@ -297,6 +297,64 @@ class BilibiliAdapter(SourceAdapter):
                 )
             )
         return segments
+
+    # ---------------------------------------------------------------- comments
+    def fetch_comments(self, item: SavedItem) -> Iterator[Comment]:
+        """Top comment threads, hottest first.
+
+        Bilibili comment sections are unusually load-bearing: corrections, the
+        prerequisite the UP skipped, and timestamp navigation all live there
+        rather than in the video. ``mode=3`` asks for the hot ranking, which is
+        what makes a 15-comment cap enough.
+        """
+        settings = self.config.comments
+        if not settings.enabled:
+            return iter(())
+
+        aid = item.extra.get("aid") or 0
+        if not aid:
+            view = self._video_view(item.source_id)
+            aid = view.get("aid", 0)
+            item.extra["aid"] = aid
+        if not aid:
+            raise AdapterError(f"no aid for {item.source_id}")
+
+        data = self._get(
+            "/x/v2/reply/wbi/main",
+            {"oid": aid, "type": 1, "mode": 3, "ps": 20, "next": 0, "plat": 1},
+            sign=True,
+        ) or {}
+        return iter(self._parse_replies(data.get("replies") or [], settings))
+
+    @staticmethod
+    def _parse_replies(replies: list[dict], settings) -> list[Comment]:
+        out: list[Comment] = []
+        for entry in replies:
+            content = ((entry.get("content") or {}).get("message") or "").strip()
+            likes = int(entry.get("like", 0) or 0)
+            if len(content) < settings.min_chars or likes < settings.min_likes:
+                continue
+            sub: list[str] = []
+            if settings.include_replies:
+        # Replies get a lower length floor than top-level comments. A reply is
+        # corroboration or correction and is often terse — "对，是 O(n²) 不是
+        # O(n)" is three words and the single most useful line in the thread —
+        # whereas a short *top-level* comment is almost always noise.
+                reply_floor = max(6, settings.min_chars // 2)
+                for child in (entry.get("replies") or [])[: settings.max_replies_per_thread]:
+                    text = ((child.get("content") or {}).get("message") or "").strip()
+                    if len(text) >= reply_floor:
+                        sub.append(text)
+            out.append(
+                Comment(
+                    text=content,
+                    author=((entry.get("member") or {}).get("uname") or ""),
+                    likes=likes,
+                    replies=sub,
+                )
+            )
+        out.sort(key=lambda c: -c.likes)
+        return out[: settings.max_per_item]
 
     # --------------------------------------------------------------- URL match
     @classmethod

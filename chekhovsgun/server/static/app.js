@@ -41,7 +41,9 @@
   };
 
   // ----------------------------------------------------------------- render
-  function renderHit(hit) {
+  const STATE_LABEL = { digested: "已消化", muted: "已静音" };
+
+  function renderHit(hit, options = {}) {
     const item = hit.item;
     const link = hit.deep_link || item.url;
     const quotes = (hit.chunks || [])
@@ -49,7 +51,8 @@
       .slice(0, 2)
       .map((chunk) => {
         const stamp = chunk.start ? `<span class="ts">${timestamp(chunk.start)}</span>` : "";
-        return `<p class="quote">${stamp}${escape(chunk.text.slice(0, 220))}</p>`;
+        const badge = chunk.kind === "comment" ? `<span class="ts">评论</span>` : "";
+        return `<p class="quote">${stamp}${badge}${escape(chunk.text.slice(0, 220))}</p>`;
       })
       .join("");
     // Imported items often have no cover art; a blank grey box reads as a broken
@@ -59,8 +62,22 @@
       : `<div class="thumb placeholder ${escape(item.source)}">${escape(
           (item.title || "?").trim().charAt(0)
         )}</div>`;
+    const state = item.status && item.status !== "active"
+      ? `<span class="state ${escape(item.status)}">${escape(STATE_LABEL[item.status] || item.status)}</span>`
+      : "";
+    const userTags = (item.user_tags || [])
+      .map((tag) => `<span class="utag">${escape(tag)}</span>`).join("");
+    const marks = options.actions
+      ? `<div class="marks">
+           <button class="btn tiny" data-mark="digested" data-id="${escape(item.id)}">✓ 已消化</button>
+           <button class="btn tiny ghost" data-mark="muted" data-id="${escape(item.id)}">⊘ 静音</button>
+           ${item.status !== "active"
+             ? `<button class="btn tiny ghost" data-mark="active" data-id="${escape(item.id)}">放回</button>`
+             : ""}
+         </div>`
+      : "";
     return `
-      <article class="hit">
+      <article class="hit ${item.status && item.status !== "active" ? "is-" + escape(item.status) : ""}">
         ${thumb}
         <div class="body">
           <p class="title"><a href="${escape(link)}" target="_blank" rel="noopener">${escape(item.title)}</a></p>
@@ -70,8 +87,11 @@
             ${item.author ? `<span>· ${escape(item.author)}</span>` : ""}
             ${item.folder ? `<span>· ${escape(item.folder)}</span>` : ""}
             ${hit.score != null ? `<span class="score">${Number(hit.score).toFixed(2)}</span>` : ""}
+            ${state}
+            ${userTags}
           </div>
           ${quotes}
+          ${marks}
         </div>
       </article>`;
   }
@@ -93,7 +113,8 @@
         ["收藏", s.items],
         ["片段", s.chunks],
         ["已开火", s.items_fired],
-        ["覆盖率", `${(s.coverage * 100).toFixed(0)}%`],
+        ["已消化", s.items_digested ?? 0],
+        ["消化率", `${((s.coverage || 0) * 100).toFixed(0)}%`],
       ]
         .map(([label, value]) => `<div><span class="label">${label}</span><b>${escape(value)}</b></div>`)
         .join("");
@@ -229,11 +250,19 @@
       $("library").innerHTML = "";
     }
     try {
-      const result = await api(`/api/items?limit=${PAGE}&offset=${offset}`);
+      const params = new URLSearchParams({ limit: String(PAGE), offset: String(offset) });
+      for (const [id, key] of [["library-status", "status"], ["library-source", "source"],
+                               ["library-tag", "tag"]]) {
+        const value = $(id) && $(id).value;
+        if (value) params.set(key, value);
+      }
+      const result = await api(`/api/items?${params}`);
       const html = result.items
-        .map((item) => renderHit({ item, chunks: [], score: null, deep_link: item.url }))
+        .map((item) => renderHit({ item, chunks: [], score: null, deep_link: item.url },
+                                 { actions: true }))
         .join("");
       $("library").insertAdjacentHTML("beforeend", html);
+      bindMarks($("library"));
       offset += result.items.length;
       $("library-count").textContent = offset ? `已载入 ${offset} 条` : "";
       $("load-more").hidden = result.items.length < PAGE;
@@ -246,6 +275,47 @@
     }
   }
   $("load-more").addEventListener("click", () => loadLibrary(false));
+  ["library-status", "library-source", "library-tag"].forEach((id) =>
+    $(id).addEventListener("change", () => loadLibrary(true)));
+
+  function bindMarks(root) {
+    root.querySelectorAll("[data-mark]").forEach((button) => {
+      if (button.dataset.bound) return;
+      button.dataset.bound = "1";
+      button.addEventListener("click", async () => {
+        button.disabled = true;
+        try {
+          await api(`/api/items/${encodeURIComponent(button.dataset.id)}/mark`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ status: button.dataset.mark }),
+          });
+          loadLibrary(true);
+          loadStatus();
+          loadTags();
+        } catch (error) {
+          button.disabled = false;
+          console.error(error);
+        }
+      });
+    });
+  }
+
+  async function loadTags() {
+    try {
+      const result = await api("/api/tags");
+      const select = $("library-tag");
+      const current = select.value;
+      select.innerHTML =
+        `<option value="">全部标签</option>` +
+        result.tags
+          .map((row) => `<option value="${escape(row.tag)}">${escape(row.tag)} (${row.count})</option>`)
+          .join("");
+      select.value = current;
+    } catch {
+      /* tags are optional decoration */
+    }
+  }
 
   // ---------------------------------------------------------------- events
   async function loadEvents() {
@@ -275,5 +345,6 @@
   loadStatus();
   loadLibrary(true);
   loadEvents();
+  loadTags();
   setInterval(loadStatus, 30000);
 })();

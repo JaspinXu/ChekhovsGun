@@ -106,6 +106,16 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
           await markFired(message.key, true);
           sendResponse({ ok: true });
           break;
+        case "mark":
+          // Server-side and permanent, unlike "mute" which only lasts the session.
+          await request(`/api/items/${encodeURIComponent(message.itemId)}/mark`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ status: message.status }),
+          });
+          cache.clear();
+          sendResponse({ ok: true });
+          break;
         case "feedback":
           await request("/api/feedback", {
             method: "POST",

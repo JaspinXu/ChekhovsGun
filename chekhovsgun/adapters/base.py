@@ -1,9 +1,9 @@
 """The contract every source app must satisfy.
 
 Adding a third source (Xiaohongshu, Zhihu, Pocket, a local folder…) means
-implementing exactly three things: list what the user saved, fetch an item's
-text, and recognise one of the app's URLs. Nothing else in the codebase knows
-which app a chunk came from.
+implementing three things: list what the user saved, fetch an item's text, and
+recognise one of the app's URLs — plus comments if the platform has them worth
+reading. Nothing else in the codebase knows which app a chunk came from.
 """
 
 from __future__ import annotations
@@ -12,7 +12,7 @@ from abc import ABC, abstractmethod
 from typing import Iterable, Iterator
 
 from ..config import Config
-from ..models import Context, SavedItem, Segment
+from ..models import Comment, Context, SavedItem, Segment
 
 
 class AdapterError(RuntimeError):
@@ -47,6 +47,15 @@ class SourceAdapter(ABC):
 
     def fetch_content(self, item: SavedItem) -> Iterator[Segment]:
         """Yield the item's transcript. Default: nothing (title/description only)."""
+        return iter(())
+
+    def fetch_comments(self, item: SavedItem) -> Iterator[Comment]:
+        """Yield the item's top comment threads. Default: none.
+
+        Comments are optional per source because not every platform has a
+        discussion worth indexing — but where they exist they are the cheapest
+        high-signal text this project can get.
+        """
         return iter(())
 
     # --------------------------------------------------------------- live side

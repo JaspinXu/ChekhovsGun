@@ -18,7 +18,7 @@ from .adapters import AdapterError, SourceAdapter, build_adapter, context_from_u
 from .config import Config, load_config
 from .ingest import IngestPipeline, IngestReport
 from .llm.explain import Explainer, Explanation
-from .models import Context, ItemHit
+from .models import STATUS_DIGESTED, STATUS_MUTED, Context, ItemHit
 from .rag.embeddings import Embedder, get_embedder
 from .rag.retriever import Retriever
 from .rag.store import Store
@@ -106,6 +106,13 @@ class Engine:
         self._cache.clear()
 
     # -------------------------------------------------------------- retrieval
+    def _silenced_items(self) -> set[str]:
+        """Items the user has told us to stop interrupting them about."""
+        statuses = [STATUS_MUTED]
+        if self.config.retrieval.exclude_digested:
+            statuses.append(STATUS_DIGESTED)
+        return self.store.item_ids_with_status(statuses)
+
     def relate(
         self,
         context: Context,
@@ -132,7 +139,9 @@ class Engine:
                 return {**cached, "cached": True}
 
         started = time.perf_counter()
-        hits: list[ItemHit] = self.retriever.relate(context, limit=limit)
+        hits: list[ItemHit] = self.retriever.relate(
+            context, limit=limit, exclude_items=self._silenced_items()
+        )
         explanation: Explanation | None = None
         if hits and explain:
             explanation = self.explainer.explain(context, hits)
@@ -183,7 +192,28 @@ class Engine:
         return result
 
     def search(self, query: str, *, limit: int = 10, sources: set[str] | None = None) -> list[ItemHit]:
+        """Explicit search sees everything — muting stops interruptions, not recall."""
         return self.retriever.search_items(query, limit=limit, sources=sources)
+
+    def mark(
+        self,
+        item_id: str,
+        *,
+        status: str | None = None,
+        add_tags: list[str] | None = None,
+        remove_tags: list[str] | None = None,
+        note: str | None = None,
+    ) -> dict[str, Any] | None:
+        item = self.store.set_item_status(
+            item_id, status=status, add_tags=add_tags, remove_tags=remove_tags, note=note
+        )
+        if item is None:
+            return None
+        self.invalidate_cache()
+        if status:
+            self.store.log_event("status", source=item.source, item_id=item.id,
+                                 payload={"status": status})
+        return item.to_dict()
 
     # ----------------------------------------------------------------- ingest
     def adapters(self, names: Iterable[str] | None = None) -> list[SourceAdapter]:

@@ -17,10 +17,11 @@ from typing import Callable, Iterable, Sequence
 
 from .adapters.base import SourceAdapter
 from .config import Config
-from .models import SavedItem, Segment
+from .models import Comment, SavedItem, Segment
 from .rag.chunker import chunk_item
 from .rag.embeddings import Embedder
 from .rag.store import Store
+from .transcribe import TranscriptionUnavailable, WhisperTranscriber
 
 log = logging.getLogger(__name__)
 
@@ -36,6 +37,8 @@ class IngestReport:
     skipped: int = 0
     failed: int = 0
     with_transcript: int = 0
+    transcribed: int = 0
+    with_comments: int = 0
     chunks: int = 0
     errors: list[str] = field(default_factory=list)
     started_at: float = field(default_factory=time.time)
@@ -54,6 +57,8 @@ class IngestReport:
             "skipped": self.skipped,
             "failed": self.failed,
             "with_transcript": self.with_transcript,
+            "transcribed": self.transcribed,
+            "with_comments": self.with_comments,
             "chunks": self.chunks,
             "errors": self.errors[:20],
             "duration": round(self.duration, 2),
@@ -66,6 +71,8 @@ class IngestReport:
         self.skipped += other.skipped
         self.failed += other.failed
         self.with_transcript += other.with_transcript
+        self.transcribed += other.transcribed
+        self.with_comments += other.with_comments
         self.chunks += other.chunks
         self.errors.extend(other.errors)
         return self
@@ -104,9 +111,16 @@ class Indexer:
             )
         store.set_meta("embedding_signature", signature)
 
-    def index_item(self, item: SavedItem, segments: Sequence[Segment] | None = None) -> int:
+    def index_item(
+        self,
+        item: SavedItem,
+        segments: Sequence[Segment] | None = None,
+        comments: Sequence[Comment] | None = None,
+        *,
+        transcript_source: str = "",
+    ) -> int:
         """Chunk, embed and persist a single item. Returns the chunk count."""
-        chunks = chunk_item(item, list(segments or []), self.config.retrieval)
+        chunks = chunk_item(item, list(segments or []), self.config.retrieval, list(comments or []))
         if not chunks:
             return 0
         vectors = self.embedder.embed([c.text for c in chunks])
@@ -114,6 +128,7 @@ class Indexer:
             item,
             content_hash=content_hash(item),
             has_transcript=bool(segments),
+            transcript_source=transcript_source or ("captions" if segments else "none"),
         )
         self.store.replace_chunks(item.id, chunks, vectors)
         return len(chunks)
@@ -145,6 +160,9 @@ class IngestPipeline:
         self.config = config
         self.store = store
         self.indexer = Indexer(config, store, embedder)
+        # The transcriber lives here rather than in an adapter: it works from
+        # the item's URL alone, so every source gets the fallback for free.
+        self.transcriber = WhisperTranscriber(config.whisper)
 
     def run(
         self,
@@ -153,10 +171,20 @@ class IngestPipeline:
         limit: int | None = None,
         force: bool = False,
         fetch_transcripts: bool = True,
+        fetch_comments: bool | None = None,
+        transcribe: bool | None = None,
         progress: ProgressFn | None = None,
     ) -> IngestReport:
         report = IngestReport(source=adapter.name)
         known = self.store.item_hashes(adapter.name)
+        want_comments = self.config.comments.enabled if fetch_comments is None else fetch_comments
+        want_whisper = (
+            (self.config.whisper.enabled and self.transcriber.available)
+            if transcribe is None
+            else transcribe
+        )
+        if want_whisper:
+            self.transcriber.start_run()
 
         def emit(stage: str, payload: dict) -> None:
             if progress:
@@ -186,19 +214,44 @@ class IngestPipeline:
                     continue
 
                 segments: list[Segment] = []
+                transcript_source = ""
                 if fetch_transcripts:
                     try:
                         segments = list(adapter.fetch_content(item))
+                        transcript_source = "captions" if segments else ""
                     except Exception as exc:
                         # A missing transcript is normal, not a failure: the item
                         # still indexes from its title and description.
                         log.debug("transcript unavailable for %s: %s", item.id, exc)
                         emit("no_transcript", {"title": item.title, "reason": str(exc)})
 
-                count = self.indexer.index_item(item, segments)
+                if not segments and want_whisper:
+                    emit("transcribing", {"title": item.title})
+                    try:
+                        segments = self.transcriber.transcribe(item)
+                        if segments:
+                            transcript_source = "whisper"
+                            report.transcribed += 1
+                    except TranscriptionUnavailable as exc:
+                        log.debug("whisper skipped %s: %s", item.id, exc)
+                    except Exception as exc:
+                        log.warning("whisper failed for %s: %s", item.id, exc)
+
+                comments: list[Comment] = []
+                if want_comments:
+                    try:
+                        comments = list(adapter.fetch_comments(item))
+                    except Exception as exc:
+                        log.debug("comments unavailable for %s: %s", item.id, exc)
+
+                count = self.indexer.index_item(
+                    item, segments, comments, transcript_source=transcript_source
+                )
                 report.chunks += count
                 if segments:
                     report.with_transcript += 1
+                if comments:
+                    report.with_comments += 1
                 if existing:
                     report.updated += 1
                 else:
