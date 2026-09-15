@@ -22,7 +22,7 @@ def test_healthz(client):
 def test_dashboard_is_served(client):
     response = client.get("/")
     assert response.status_code == 200
-    assert "ChekhovsGun" in response.text
+    assert "藏知" in response.text
     assert client.get("/app.js").status_code == 200
     assert client.get("/app.css").status_code == 200
 
@@ -133,8 +133,10 @@ def test_relate_explains_why_it_stayed_quiet(client):
     payload = client.post("/api/relate", json={"title": "猫咪剪指甲全过程"}).json()
     assert payload["reason_code"] == "no_match"
 
+    # A bare url from a site we have never indexed gives us nothing to match
+    # on. Saying "nothing matched" there would be a lie — we never compared.
     payload = client.get("/api/relate", params={"url": "https://example.com/x"}).json()
-    assert payload["reason_code"] == "unknown_url"
+    assert payload["reason_code"] == "page_unreadable"
 
     saved = client.get("/api/items", params={"source": "bilibili"}).json()["items"][0]
     payload = client.get("/api/relate", params={"url": saved["url"]}).json()
@@ -179,3 +181,72 @@ def test_status_exposes_the_digestion_metrics(client):
     stats = client.get("/api/status").json()["stats"]
     for key in ("items_digested", "by_status", "coverage", "fire_rate", "comment_chunks"):
         assert key in stats
+
+
+# ------------------------------------------------------------------- capture
+POST_BODY = (
+    "纯向量检索最大的失败模式是专有名词。嵌入会把精确的术语抹平。\n"
+    "BM25 的失败模式正好相反：它对专有名词极准，但完全不理解同义改写。\n"
+    "所以把两路召回用 RRF 融合，只看排名不看分数，就不需要校准两条分数线。"
+)
+
+
+def test_capture_stores_a_page_the_browser_read(client):
+    payload = client.post("/api/capture", json={
+        "url": "https://www.zhihu.com/question/9/answer/9?utm_source=wechat",
+        "title": "混合检索讲清楚",
+        "text": POST_BODY,
+        "folder": "知乎收藏夹",
+    }).json()
+    assert payload["state"] == "added"
+    assert payload["source"] == "zhihu"
+    assert payload["media_kind"] == "post"
+    assert payload["url"] == "https://zhihu.com/question/9/answer/9"
+    assert payload["needs_body"] is False
+
+    item = client.get(f"/api/items/{payload['item_id']}").json()["item"]
+    assert item["folder"] == "知乎收藏夹"
+
+
+def test_capture_requires_a_url(client):
+    assert client.post("/api/capture", json={"url": "   "}).status_code == 422
+    assert client.post("/api/capture", json={"title": "no url"}).status_code == 422
+
+
+def test_capture_is_idempotent(client):
+    body = {"url": "https://zhuanlan.zhihu.com/p/77", "title": "T", "text": POST_BODY}
+    assert client.post("/api/capture", json=body).json()["state"] == "added"
+    assert client.post("/api/capture", json=body).json()["state"] == "skipped"
+
+
+def test_batch_capture_queues_bodies_for_fetching(client):
+    payload = client.post("/api/capture/batch", json={
+        "items": [
+            {"url": "https://zhuanlan.zhihu.com/p/1", "title": "一"},
+            {"url": "https://zhuanlan.zhihu.com/p/2", "title": "二"},
+        ],
+        "hydrate": False,
+    }).json()
+    assert payload["added"] == 2
+    assert payload["needs_body"] == 2
+    assert client.get("/api/capture/pending").json()["pending"] == 2
+
+
+def test_items_can_be_filtered_by_medium(client):
+    client.post("/api/capture", json={
+        "url": "https://zhuanlan.zhihu.com/p/55", "title": "一篇帖子", "text": POST_BODY,
+    })
+    posts = client.get("/api/items", params={"media_kind": "post"}).json()
+    assert posts["count"] == 1 and posts["items"][0]["media_kind"] == "post"
+    videos = client.get("/api/items", params={"media_kind": "video"}).json()
+    assert videos["count"] == DEMO_ITEMS
+
+
+def test_relate_answers_for_a_site_with_no_adapter(client):
+    # The seam a phone client plugs into: POST any url and get a real answer.
+    payload = client.post("/api/relate", json={
+        "url": "https://some-blog.example/p/1",
+        "title": "RAG 分块策略与混合检索重排序",
+    }).json()
+    assert payload["reason_code"] != "unknown_url"
+    assert payload["fired"] is True

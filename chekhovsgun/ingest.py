@@ -78,19 +78,38 @@ class IngestReport:
         return self
 
 
-def content_hash(item: SavedItem) -> str:
-    """Hash of everything that would change the item's chunks."""
-    payload = "|".join(
-        [
-            item.title,
-            item.author,
-            item.description[:4000],
-            item.folder,
-            ",".join(item.tags),
-            str(int(item.duration)),
-        ]
-    )
-    return hashlib.sha1(payload.encode("utf-8")).hexdigest()[:24]
+def content_hash(item: SavedItem, segments: Sequence[Segment] | None = None) -> str:
+    """Hash of everything that would change the item's chunks.
+
+    Body text is included for a post but not for a video, and the asymmetry is
+    forced by where the text comes from. A video's transcript is fetched *after*
+    this hash is compared — skipping that fetch is the entire point of comparing
+    it — so folding the transcript in would mean downloading every transcript on
+    every sync to discover there was nothing to do. A post's body, by contrast,
+    arrives in the same payload as its title, so hashing it costs nothing and is
+    what makes re-capturing an edited answer actually update the index.
+    """
+    parts = [
+        item.title,
+        item.author,
+        item.description[:4000],
+        item.folder,
+        ",".join(item.tags),
+        str(int(item.duration)),
+    ]
+    if item.is_post and segments:
+        body = "".join(segment.text for segment in segments)
+        parts.append(hashlib.sha1(body.encode("utf-8")).hexdigest())
+    return hashlib.sha1("|".join(parts).encode("utf-8")).hexdigest()[:24]
+
+
+@dataclass(slots=True)
+class ItemOutcome:
+    """What happened to one item. ``state`` names an :class:`IngestReport` counter."""
+
+    state: str  # added | updated | skipped | failed
+    chunks: int = 0
+    error: str = ""
 
 
 class Indexer:
@@ -120,15 +139,17 @@ class Indexer:
         transcript_source: str = "",
     ) -> int:
         """Chunk, embed and persist a single item. Returns the chunk count."""
-        chunks = chunk_item(item, list(segments or []), self.config.retrieval, list(comments or []))
+        segment_list = list(segments or [])
+        chunks = chunk_item(item, segment_list, self.config.retrieval, list(comments or []))
         if not chunks:
             return 0
         vectors = self.embedder.embed([c.text for c in chunks])
+        default_source = "capture" if item.is_post else "captions"
         self.store.upsert_item(
             item,
-            content_hash=content_hash(item),
-            has_transcript=bool(segments),
-            transcript_source=transcript_source or ("captions" if segments else "none"),
+            content_hash=content_hash(item, segment_list),
+            has_transcript=bool(segment_list),
+            transcript_source=transcript_source or (default_source if segment_list else "none"),
         )
         self.store.replace_chunks(item.id, chunks, vectors)
         return len(chunks)
@@ -163,6 +184,39 @@ class IngestPipeline:
         # The transcriber lives here rather than in an adapter: it works from
         # the item's URL alone, so every source gets the fallback for free.
         self.transcriber = WhisperTranscriber(config.whisper)
+
+    def ingest_one(
+        self,
+        item: SavedItem,
+        segments: Sequence[Segment] | None = None,
+        comments: Sequence[Comment] | None = None,
+        *,
+        transcript_source: str = "",
+        force: bool = False,
+        known_hash: str | None = None,
+    ) -> ItemOutcome:
+        """Take in one item whose content is already in hand.
+
+        This is the entire definition of "absorb a save": decide whether
+        anything changed, then chunk, embed and store. :meth:`run` fetches an
+        adapter's content and calls this; the browser capture endpoint already
+        has the content and calls it directly. Neither path reimplements the
+        other, which is what keeps a captured Zhihu answer and a synced
+        Bilibili video identical everywhere downstream.
+        """
+        segment_list = list(segments or [])
+        comment_list = list(comments or [])
+        existing = known_hash if known_hash is not None else self.store.item_hash(item.id)
+        if existing and not force and existing == content_hash(item, segment_list):
+            return ItemOutcome("skipped")
+        try:
+            count = self.indexer.index_item(
+                item, segment_list, comment_list, transcript_source=transcript_source
+            )
+        except Exception as exc:
+            log.exception("failed to index %s", item.id)
+            return ItemOutcome("failed", error=f"{item.id}: {exc}")
+        return ItemOutcome("updated" if existing else "added", chunks=count)
 
     def run(
         self,
@@ -207,9 +261,17 @@ class IngestPipeline:
             report.seen += 1
             emit("item", {"title": item.title, "seen": report.seen})
             try:
-                new_hash = content_hash(item)
                 existing = known.get(item.id)
-                if existing and existing == new_hash and not force:
+                # This early check exists purely to avoid the transcript fetch
+                # below, which is the slow, rate-limited, ban-prone part. A post
+                # has no such fetch — its body travels with it — so the real
+                # decision is left to ingest_one, which hashes the body too.
+                if (
+                    not item.is_post
+                    and existing
+                    and existing == content_hash(item)
+                    and not force
+                ):
                     report.skipped += 1
                     continue
 
@@ -244,18 +306,25 @@ class IngestPipeline:
                     except Exception as exc:
                         log.debug("comments unavailable for %s: %s", item.id, exc)
 
-                count = self.indexer.index_item(
-                    item, segments, comments, transcript_source=transcript_source
+                outcome = self.ingest_one(
+                    item,
+                    segments,
+                    comments,
+                    transcript_source=transcript_source,
+                    force=force,
+                    known_hash=existing,
                 )
-                report.chunks += count
-                if segments:
-                    report.with_transcript += 1
-                if comments:
-                    report.with_comments += 1
-                if existing:
-                    report.updated += 1
-                else:
-                    report.added += 1
+                if outcome.state == "failed":
+                    report.failed += 1
+                    report.errors.append(outcome.error)
+                    continue
+                report.chunks += outcome.chunks
+                if outcome.state != "skipped":
+                    if segments:
+                        report.with_transcript += 1
+                    if comments:
+                        report.with_comments += 1
+                setattr(report, outcome.state, getattr(report, outcome.state) + 1)
             except Exception as exc:
                 report.failed += 1
                 report.errors.append(f"{item.id}: {exc}")

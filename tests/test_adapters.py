@@ -1,6 +1,6 @@
 import json
 
-from chekhovsgun.adapters import context_from_url, detect_source
+from chekhovsgun.adapters import context_from_url, detect_source, identify_url
 from chekhovsgun.adapters.bilibili import BilibiliAdapter
 from chekhovsgun.adapters.local import LocalFileAdapter
 from chekhovsgun.adapters.youtube import (
@@ -52,10 +52,24 @@ def test_detect_source_routes_to_the_right_adapter():
     assert detect_source("https://example.com") == ("", "")
 
 
+def test_identify_url_names_post_sites_and_falls_back_for_the_rest():
+    assert identify_url("https://youtu.be/dQw4w9WgXcQ") == ("youtube", "dQw4w9WgXcQ", "video")
+    source, source_id, kind = identify_url(
+        "https://www.zhihu.com/question/123/answer/456?utm_source=wechat"
+    )
+    assert (source, source_id, kind) == ("zhihu", "123-456", "post")
+    # An unknown site is still identifiable — that is what lets relate answer
+    # about a page no adapter has ever heard of.
+    source, source_id, kind = identify_url("https://example.com/blog/hello")
+    assert source == "web" and kind == "post" and len(source_id) == 16
+
+
 def test_context_from_url():
     context = context_from_url("https://youtu.be/dQw4w9WgXcQ")
     assert context is not None and context.source == "youtube"
-    assert context_from_url("https://example.com") is None
+    # Any real URL now yields a context; only an unusable string yields None.
+    assert context_from_url("https://example.com") is not None
+    assert context_from_url("") is None
 
 
 def test_parse_iso_duration():

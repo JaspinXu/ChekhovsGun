@@ -24,12 +24,12 @@ from typing import Any, Iterable, Sequence
 
 import numpy as np
 
-from ..models import STATUS_ACTIVE, STATUSES, Chunk, SavedItem
+from ..models import MEDIA_VIDEO, STATUS_ACTIVE, STATUSES, Chunk, SavedItem
 from .text import tokenize
 
 log = logging.getLogger(__name__)
 
-SCHEMA_VERSION = 3
+SCHEMA_VERSION = 4
 
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS items (
@@ -58,7 +58,8 @@ CREATE TABLE IF NOT EXISTS items (
     user_tags     TEXT NOT NULL DEFAULT '[]',
     note          TEXT NOT NULL DEFAULT '',
     status_at     REAL NOT NULL DEFAULT 0,
-    transcript_source TEXT NOT NULL DEFAULT ''
+    transcript_source TEXT NOT NULL DEFAULT '',
+    media_kind    TEXT NOT NULL DEFAULT 'video'
 );
 CREATE INDEX IF NOT EXISTS idx_items_source ON items(source);
 CREATE INDEX IF NOT EXISTS idx_items_saved_at ON items(saved_at DESC);
@@ -131,6 +132,7 @@ def _row_to_item(row: sqlite3.Row) -> SavedItem:
         user_tags=json.loads(_col(row, "user_tags", "[]") or "[]"),
         note=_col(row, "note", ""),
         transcript_source=_col(row, "transcript_source", ""),
+        media_kind=_col(row, "media_kind", MEDIA_VIDEO) or MEDIA_VIDEO,
     )
 
 
@@ -265,6 +267,9 @@ class Store:
             ("note", "TEXT NOT NULL DEFAULT ''"),
             ("status_at", "REAL NOT NULL DEFAULT 0"),
             ("transcript_source", "TEXT NOT NULL DEFAULT ''"),
+            # Every row that predates post support is a video, so the column
+            # default is already the correct backfill.
+            ("media_kind", "TEXT NOT NULL DEFAULT 'video'"),
         ):
             if column not in item_columns:
                 log.info("migrating index: adding items.%s", column)
@@ -318,7 +323,7 @@ class Store:
 
         The ON CONFLICT clause deliberately omits ``status``, ``user_tags`` and
         ``note``: those belong to the user, and a nightly re-sync must never
-        resurrect something they marked 已消化.
+        resurrect something they marked 已学完.
         """
         with self._lock:
             self._conn.execute(
@@ -326,8 +331,8 @@ class Store:
                 INSERT INTO items (id, source, source_id, title, url, author, author_id,
                                    description, thumbnail, duration, published_at, saved_at,
                                    folder, lang, tags, extra, content_hash, has_transcript,
-                                   indexed_at, transcript_source)
-                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+                                   indexed_at, transcript_source, media_kind)
+                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
                 ON CONFLICT(id) DO UPDATE SET
                     title=excluded.title, url=excluded.url, author=excluded.author,
                     author_id=excluded.author_id, description=excluded.description,
@@ -336,7 +341,8 @@ class Store:
                     folder=excluded.folder, lang=excluded.lang, tags=excluded.tags,
                     extra=excluded.extra, content_hash=excluded.content_hash,
                     has_transcript=excluded.has_transcript, indexed_at=excluded.indexed_at,
-                    transcript_source=excluded.transcript_source
+                    transcript_source=excluded.transcript_source,
+                    media_kind=excluded.media_kind
                 """,
                 (
                     item.id, item.source, item.source_id, item.title, item.url, item.author,
@@ -345,6 +351,7 @@ class Store:
                     json.dumps(item.tags, ensure_ascii=False),
                     json.dumps(item.extra, ensure_ascii=False),
                     content_hash, int(has_transcript), time.time(), transcript_source,
+                    item.media_kind or MEDIA_VIDEO,
                 ),
             )
             self._conn.commit()
@@ -434,6 +441,53 @@ class Store:
                     out[row["id"]] = _row_to_item(row)
         return out
 
+    #: ``transcript_source`` doubles as the hydration queue. A capture that
+    #: arrived as a bare link parks here until its page has been fetched; after
+    #: that it is 'capture' (body indexed) or 'none' (unreadable, do not retry).
+    AWAITING_BODY = "pending"
+
+    def items_awaiting_body(self, *, limit: int = 200) -> list[SavedItem]:
+        """Captured links whose page text has not been fetched yet, oldest first."""
+        with self._lock:
+            rows = self._conn.execute(
+                "SELECT * FROM items WHERE transcript_source=? ORDER BY saved_at ASC LIMIT ?",
+                (self.AWAITING_BODY, int(limit)),
+            ).fetchall()
+        return [_row_to_item(row) for row in rows]
+
+    def count_items_awaiting_body(self) -> int:
+        with self._lock:
+            row = self._conn.execute(
+                "SELECT COUNT(*) c FROM items WHERE transcript_source=?", (self.AWAITING_BODY,)
+            ).fetchone()
+        return int(row["c"])
+
+    def set_transcript_source(self, item_id: str, value: str) -> None:
+        """Move an item out of the hydration queue without touching its chunks."""
+        with self._lock:
+            self._conn.execute(
+                "UPDATE items SET transcript_source=? WHERE id=?", (value, item_id)
+            )
+            self._conn.commit()
+            self._touch()
+
+    def item_count(self) -> int:
+        """Cheap enough to call on every popup — :meth:`stats` runs eight queries."""
+        with self._lock:
+            return int(self._conn.execute("SELECT COUNT(*) c FROM items").fetchone()["c"])
+
+    def item_hash(self, item_id: str) -> str:
+        """One item's content hash, or '' if it is not in the library yet.
+
+        The bulk :meth:`item_hashes` is right for a sync that walks a whole
+        folder; a single capture arriving from the browser wants one row.
+        """
+        with self._lock:
+            row = self._conn.execute(
+                "SELECT content_hash FROM items WHERE id=?", (item_id,)
+            ).fetchone()
+        return (row["content_hash"] or "") if row else ""
+
     def item_hashes(self, source: str = "") -> dict[str, str]:
         """``item_id -> content_hash``; used to skip unchanged items on re-ingest."""
         query = "SELECT id, content_hash FROM items"
@@ -452,6 +506,7 @@ class Store:
         query: str = "",
         status: str = "",
         tag: str = "",
+        media_kind: str = "",
         limit: int = 100,
         offset: int = 0,
     ) -> list[SavedItem]:
@@ -464,6 +519,9 @@ class Store:
         if status:
             clauses.append("status=?")
             params.append(status)
+        if media_kind:
+            clauses.append("media_kind=?")
+            params.append(media_kind)
         if tag:
             # user_tags is a JSON array; a LIKE on the quoted form is exact
             # enough here and needs no JSON1 extension.
@@ -688,6 +746,12 @@ class Store:
                     "SELECT status, COUNT(*) c FROM items GROUP BY status"
                 ).fetchall()
             }
+            by_media = {
+                row["media_kind"]: row["c"]
+                for row in self._conn.execute(
+                    "SELECT media_kind, COUNT(*) c FROM items GROUP BY media_kind"
+                ).fetchall()
+            }
             comment_chunks = self._conn.execute(
                 "SELECT COUNT(*) c FROM chunks WHERE kind='comment'"
             ).fetchone()["c"]
@@ -702,6 +766,7 @@ class Store:
             "by_source": by_source,
             "items_fired": fired,
             "by_status": by_status,
+            "by_media": by_media,
             "items_digested": by_status.get("digested", 0),
             "comment_chunks": comment_chunks,
             "items_transcribed": transcribed,

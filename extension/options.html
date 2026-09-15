@@ -2,7 +2,7 @@
 <html lang="zh-CN">
 <head>
 <meta charset="utf-8" />
-<title>ChekhovsGun 设置</title>
+<title>藏知设置</title>
 <style>
   :root { color-scheme: light dark; }
   body { max-width: 560px; margin: 40px auto; padding: 0 20px;
@@ -28,8 +28,8 @@
 </style>
 </head>
 <body>
-  <h1>ChekhovsGun 设置</h1>
-  <p class="sub">扩展只会访问你本机上的 ChekhovsGun 服务，不会把观看记录发到任何别的地方。</p>
+  <h1>藏知设置</h1>
+  <p class="sub">扩展只会访问你本机上的藏知服务，不会把收藏和浏览记录发到任何别的地方。</p>
 
   <fieldset>
     <legend>本地服务</legend>
@@ -39,10 +39,21 @@
   </fieldset>
 
   <fieldset>
+    <legend>收藏采集</legend>
+    <div class="check"><input type="checkbox" id="captureOnSave" /><label for="captureOnSave">点网站自己的「收藏」按钮时，自动收进藏知</label></div>
+    <p class="hint">这是「只需要收藏」的关键。关掉之后仍可以点扩展图标手动收。
+       部分网站用同一个按钮收藏和取消收藏，无法判断状态时会按「收藏」处理，多收的条目可以在藏知里删除。</p>
+  </fieldset>
+
+  <fieldset>
+    <legend>在哪些网站上启用</legend>
+    <div id="sites"></div>
+    <p class="hint">关掉某个网站后，藏知在那里既不提醒也不采集。</p>
+  </fieldset>
+
+  <fieldset>
     <legend>提醒行为</legend>
     <div class="check"><input type="checkbox" id="enabled" /><label for="enabled">启用提醒</label></div>
-    <div class="check"><input type="checkbox" id="youtube" /><label for="youtube">在 YouTube 上启用</label></div>
-    <div class="check"><input type="checkbox" id="bilibili" /><label for="bilibili">在 Bilibili 上启用</label></div>
     <div class="check"><input type="checkbox" id="explain" /><label for="explain">生成解读（未配置 LLM 时自动降级为原文摘录）</label></div>
     <div class="check"><input type="checkbox" id="autoCollapse" /><label for="autoCollapse">默认折叠卡片</label></div>
 

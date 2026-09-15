@@ -1,14 +1,20 @@
 {
   "manifest_version": 3,
-  "name": "ChekhovsGun · 契诃夫的枪",
+  "name": "藏知 ChekhovsGun",
   "version": "0.1.0",
-  "description": "刷 YouTube / Bilibili 时，提醒你「这个你收藏过」，并把当时收藏的内容讲给你听。",
-  "permissions": ["storage"],
+  "description": "刷视频和帖子时，提醒你「这个你收藏过」，并把当时收藏的内容讲给你听。只需要收藏，剩下的交给它。",
+  "permissions": [
+    "storage",
+    "activeTab",
+    "scripting"
+  ],
   "host_permissions": [
     "http://127.0.0.1/*",
     "http://localhost/*"
   ],
-  "background": { "service_worker": "background.js" },
+  "background": {
+    "service_worker": "background.js"
+  },
   "action": {
     "default_popup": "popup.html",
     "default_title": "ChekhovsGun",
@@ -29,14 +35,44 @@
   "content_scripts": [
     {
       "matches": [
-        "https://www.youtube.com/*",
-        "https://m.youtube.com/*",
-        "https://www.bilibili.com/*",
-        "https://m.bilibili.com/*"
+        "https://*.youtube.com/*",
+        "https://youtube.com/*",
+        "https://*.bilibili.com/*",
+        "https://bilibili.com/*",
+        "https://*.zhihu.com/*",
+        "https://zhihu.com/*",
+        "https://*.xiaohongshu.com/*",
+        "https://xiaohongshu.com/*",
+        "https://*.mp.weixin.qq.com/*",
+        "https://mp.weixin.qq.com/*",
+        "https://*.weibo.com/*",
+        "https://weibo.com/*",
+        "https://*.juejin.cn/*",
+        "https://juejin.cn/*",
+        "https://*.blog.csdn.net/*",
+        "https://blog.csdn.net/*",
+        "https://*.jianshu.com/*",
+        "https://jianshu.com/*",
+        "https://*.reddit.com/*",
+        "https://reddit.com/*",
+        "https://*.twitter.com/*",
+        "https://twitter.com/*",
+        "https://*.x.com/*",
+        "https://x.com/*",
+        "https://*.stackoverflow.com/*",
+        "https://stackoverflow.com/*",
+        "https://*.medium.com/*",
+        "https://medium.com/*"
       ],
-      "js": ["content.js"],
+      "js": [
+        "recipes.js",
+        "content.js"
+      ],
       "run_at": "document_idle",
       "all_frames": false
     }
+  ],
+  "optional_host_permissions": [
+    "https://*/*"
   ]
 }

@@ -40,6 +40,9 @@ class RelateRequest(BaseModel):
     tags: list[str] = Field(default_factory=list)
     limit: int | None = None
     explain: bool = True
+    #: With only a url and no text, read the page before answering. The
+    #: extension always sends the text it already has, so it never needs this.
+    fetch: bool = False
 
     def to_context(self) -> Context:
         return Context(
@@ -58,6 +61,54 @@ class IngestRequest(BaseModel):
     limit: int | None = None
     force: bool = False
     fetch_transcripts: bool = True
+
+
+class CaptureComment(BaseModel):
+    text: str = ""
+    author: str = ""
+    likes: int = 0
+    replies: list[str] = Field(default_factory=list)
+
+
+class CaptureRequest(BaseModel):
+    """One page, already read by the browser that was logged in to it.
+
+    Only ``url`` is required. A capture with no ``text`` is a *stub* — the
+    favourites scan sends hundreds of those, and the server fetches their bodies
+    afterwards rather than making the browser load every page.
+    """
+
+    url: str
+    title: str = ""
+    author: str = ""
+    text: str = ""
+    excerpt: str = ""
+    thumbnail: str = ""
+    folder: str = ""
+    source: str = ""
+    media_kind: str = ""
+    tags: list[str] = Field(default_factory=list)
+    comments: list[CaptureComment] = Field(default_factory=list)
+    published_at: float = 0.0
+    saved_at: float = 0.0
+    origin: str = "extension"
+    force: bool = False
+
+    def to_kwargs(self) -> dict[str, Any]:
+        data = self.model_dump(exclude={"url"})
+        data["comments"] = [comment.model_dump() for comment in self.comments]
+        return data
+
+
+class CaptureBatchRequest(BaseModel):
+    items: list[CaptureRequest] = Field(default_factory=list)
+    origin: str = "scan"
+    #: Fetch the bodies of any stubs in this batch as soon as it is stored.
+    hydrate: bool = True
+
+
+class HydrateRequest(BaseModel):
+    limit: int = 200
 
 
 class MarkRequest(BaseModel):
@@ -129,7 +180,10 @@ def create_app(config: Config | None = None, engine: Engine | None = None) -> Fa
 
     app = FastAPI(
         title="ChekhovsGun",
-        description="Every bookmark must fire. Local RAG over what you saved on YouTube and Bilibili.",
+        description=(
+            "Local RAG over everything you bookmarked — videos and posts. "
+            "Saves come in from platform adapters or straight from the browser."
+        ),
         version=__import__("chekhovsgun").__version__,
     )
     app.state.engine = engine
@@ -178,16 +232,23 @@ def create_app(config: Config | None = None, engine: Engine | None = None) -> Fa
 
     @app.post("/api/relate")
     def relate(request: RelateRequest) -> dict[str, Any]:
+        if request.url and not (request.title or request.description):
+            return engine.relate_url(
+                request.url, limit=request.limit, explain=request.explain,
+                fetch_missing=request.fetch,
+            )
         context = request.to_context()
         if not context.source and request.url:
-            from ..adapters import detect_source
+            from ..adapters import identify_url
 
-            context.source, context.source_id = detect_source(request.url)
+            # identify_url, not detect_source: a post page has no adapter, and
+            # refusing to name it would make the popup impossible there.
+            context.source, context.source_id, _ = identify_url(request.url)
         return engine.relate(context, limit=request.limit, explain=request.explain)
 
     @app.get("/api/relate")
-    def relate_by_url(url: str, limit: int | None = None) -> dict[str, Any]:
-        return engine.relate_url(url, limit=limit)
+    def relate_by_url(url: str, limit: int | None = None, fetch: bool = False) -> dict[str, Any]:
+        return engine.relate_url(url, limit=limit, fetch_missing=fetch)
 
     @app.get("/api/search")
     def search(
@@ -205,11 +266,13 @@ def create_app(config: Config | None = None, engine: Engine | None = None) -> Fa
         q: str = "",
         status: str = "",
         tag: str = "",
+        media_kind: str = "",
         limit: int = Query(50, ge=1, le=200),
         offset: int = Query(0, ge=0),
     ) -> dict[str, Any]:
         items = engine.store.list_items(
-            source=source, query=q, status=status, tag=tag, limit=limit, offset=offset
+            source=source, query=q, status=status, tag=tag,
+            media_kind=media_kind, limit=limit, offset=offset,
         )
         return {"count": len(items), "items": [item.to_dict() for item in items]}
 
@@ -284,6 +347,49 @@ def create_app(config: Config | None = None, engine: Engine | None = None) -> Fa
 
         threading.Thread(target=worker, name=f"ingest-{job_id}", daemon=True).start()
         return {"job_id": job_id, "state": "running"}
+
+    # ---------------------------------------------------------------- capture
+    def _hydrate_job(limit: int, detail: dict[str, Any]) -> str:
+        """Run body-fetching on the job board — it is network-bound and slow."""
+        job_id = jobs.create("hydrate", detail)
+
+        def worker() -> None:
+            try:
+                result = engine.hydrate_pending(
+                    limit=limit,
+                    progress=lambda stage, payload: jobs.progress(job_id, stage, payload),
+                )
+                jobs.update(job_id, state="done", finished_at=time.time(), result=result)
+            except Exception as exc:  # pragma: no cover - surfaced through the job
+                log.exception("hydrate job failed")
+                jobs.update(job_id, state="failed", finished_at=time.time(), error=str(exc))
+
+        threading.Thread(target=worker, name=f"hydrate-{job_id}", daemon=True).start()
+        return job_id
+
+    @app.post("/api/capture")
+    def capture(request: CaptureRequest) -> dict[str, Any]:
+        try:
+            return engine.capture(request.url, **request.to_kwargs())
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+    @app.post("/api/capture/batch")
+    def capture_batch(request: CaptureBatchRequest) -> dict[str, Any]:
+        rows = [{"url": item.url, **item.to_kwargs()} for item in request.items]
+        summary = engine.capture_many(rows, origin=request.origin)
+        job_id = ""
+        if request.hydrate and engine.pending_body_count():
+            job_id = _hydrate_job(500, {"reason": "scan"})
+        return {**summary, "hydrate_job_id": job_id}
+
+    @app.get("/api/capture/pending")
+    def capture_pending() -> dict[str, Any]:
+        return {"pending": engine.pending_body_count()}
+
+    @app.post("/api/hydrate")
+    def hydrate(request: HydrateRequest) -> dict[str, Any]:
+        return {"job_id": _hydrate_job(request.limit, {"reason": "manual"}), "state": "running"}
 
     @app.get("/api/jobs")
     def list_jobs() -> dict[str, Any]:

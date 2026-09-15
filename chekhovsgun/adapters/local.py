@@ -14,7 +14,7 @@ from pathlib import Path
 from typing import Iterable, Iterator
 
 from ..config import Config
-from ..models import Comment, SavedItem, Segment
+from ..models import MEDIA_VIDEO, Comment, SavedItem, Segment
 from .base import AdapterError, SourceAdapter
 
 _FIELD_ALIASES = {
@@ -74,18 +74,22 @@ class LocalFileAdapter(SourceAdapter):
                     yield {"url": line, "title": line}
 
     def list_saved(self, *, limit: int | None = None) -> Iterable[SavedItem]:
-        from . import detect_source  # local import to avoid a circular import
+        from . import identify_url  # local import to avoid a circular import
 
         for index, row in enumerate(self._rows()):
             if limit and index >= limit:
                 return
             url = _pick(row, "url")
-            source, source_id = detect_source(url)
+            # identify_url names the site for a post link too, so a plain list of
+            # Zhihu URLs imports as Zhihu posts rather than an undifferentiated
+            # "local" blob — and lands with the right media_kind for deep links.
+            source, source_id, media_kind = identify_url(url)
             transcript = row.get("transcript") or row.get("segments") or []
             comments = row.get("comments") or []
             yield SavedItem(
                 source=source or self.name,
                 source_id=source_id or row.get("id") or f"{self.name}-{index}",
+                media_kind=str(row.get("media_kind") or media_kind or MEDIA_VIDEO),
                 title=_pick(row, "title") or f"Item {index + 1}",
                 url=url,
                 author=_pick(row, "author"),

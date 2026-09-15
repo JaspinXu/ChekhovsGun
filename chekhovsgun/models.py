@@ -6,6 +6,14 @@ import hashlib
 import time
 from dataclasses import asdict, dataclass, field
 from typing import Any
+from urllib.parse import quote
+
+#: What shape an item's content has. Everything that differs between a lecture
+#: and a Zhihu answer — whether chunks carry timestamps, how a deep link is
+#: built, whether "字幕" is a meaningful word in the UI — keys off this.
+MEDIA_VIDEO = "video"
+MEDIA_POST = "post"
+MEDIA_KINDS = (MEDIA_VIDEO, MEDIA_POST)
 
 
 def _now() -> float:
@@ -20,6 +28,45 @@ def make_item_id(source: str, source_id: str) -> str:
 def make_chunk_id(item_id: str, ordinal: int, text: str) -> str:
     digest = hashlib.sha1(f"{item_id}|{ordinal}|{text}".encode()).hexdigest()
     return digest[:20]
+
+
+def _escape_fragment(text: str) -> str:
+    # ``-``, ``,`` and ``&`` are syntax inside a text fragment. quote() already
+    # escapes the last two, but treats ``-`` as always-safe, so it needs help.
+    return quote(text, safe="").replace("-", "%2D")
+
+
+def _snippet(text: str, limit: int, *, tail: bool = False) -> str:
+    """A leading or trailing slice that does not cut a word in half."""
+    if len(text) <= limit:
+        return text
+    if tail:
+        piece = text[-limit:]
+        return piece[piece.index(" ") + 1:] if " " in piece else piece
+    piece = text[:limit]
+    return piece[: piece.rindex(" ")] if " " in piece else piece
+
+
+def text_fragment(text: str, limit: int = 48) -> str:
+    """Build a ``:~:text=`` fragment that scrolls to and highlights ``text``.
+
+    Uses the ``textStart,textEnd`` form for a long passage so the whole thing
+    highlights rather than just its opening words. Matching is defined to be
+    whitespace-normalising and case-insensitive, which is what makes this
+    survive the difference between our cleaned chunk text and the rendered page.
+
+    Browsers without text-fragment support ignore an unknown fragment and land
+    on the page normally, so the result is always safe to append.
+    """
+    text = " ".join((text or "").split())
+    if len(text) < 8:
+        return ""
+    start = _snippet(text, limit)
+    if len(text) > limit * 2:
+        end = _snippet(text, limit, tail=True)
+        if end and end != start:
+            return f":~:text={_escape_fragment(start)},{_escape_fragment(end)}"
+    return f":~:text={_escape_fragment(start)}"
 
 
 @dataclass(slots=True)
@@ -92,12 +139,20 @@ class SavedItem:
     #: re-sync can overwrite platform metadata without destroying their work.
     user_tags: list[str] = field(default_factory=list)
     note: str = ""
-    #: '' | 'captions' | 'whisper' | 'none' — where the transcript came from.
+    #: '' | 'captions' | 'whisper' | 'capture' | 'none' — where the body came from.
     transcript_source: str = ""
+    #: One of :data:`MEDIA_KINDS`. Defaults to video because every item that
+    #: existed before posts were supported is one, which makes the column a
+    #: pure additive migration with no backfill.
+    media_kind: str = MEDIA_VIDEO
 
     @property
     def id(self) -> str:
         return make_item_id(self.source, self.source_id)
+
+    @property
+    def is_post(self) -> bool:
+        return self.media_kind == MEDIA_POST
 
     def to_dict(self) -> dict[str, Any]:
         data = asdict(self)
@@ -159,7 +214,18 @@ class ItemHit:
     confidence: float = 0.0
 
     def deep_link(self) -> str:
-        """URL that jumps straight to the most relevant moment."""
+        """URL that jumps straight to the most relevant part of the item.
+
+        A video has a timeline, so the link carries a timestamp. A post has no
+        timeline but it does have the text itself, so the link carries a text
+        fragment that scrolls to and highlights the matching passage — the same
+        promise ("go to the exact spot"), honoured with what the medium offers.
+        """
+        if self.item.is_post:
+            return self._post_link()
+        return self._video_link()
+
+    def _video_link(self) -> str:
         if not self.timestamps:
             return self.item.url
         seconds = int(max(0.0, self.timestamps[0]))
@@ -169,6 +235,31 @@ class ItemHit:
         if self.item.source == "bilibili":
             return f"{self.item.url}{sep}t={seconds}"
         return f"{self.item.url}{sep}t={seconds}s"
+
+    def _post_link(self) -> str:
+        chunk = self._anchor_chunk()
+        base = self.item.url.split("#", 1)[0]
+        if chunk is None:
+            return base
+        fragment = text_fragment(chunk.text)
+        return f"{base}#{fragment}" if fragment else base
+
+    def _anchor_chunk(self) -> Chunk | None:
+        """The chunk whose text the deep link should scroll to.
+
+        Body text is preferred over a comment: a comment often sits behind a
+        "show more" control, so a fragment pointing at one silently fails to
+        match, whereas body text is on the page as soon as it loads.
+        """
+        fallback: Chunk | None = None
+        for chunk in self.chunks:
+            if chunk.kind == "title":
+                continue
+            if chunk.kind == "comment":
+                fallback = fallback or chunk
+                continue
+            return chunk
+        return fallback
 
     def to_dict(self) -> dict[str, Any]:
         return {

@@ -84,7 +84,7 @@ def test_marking_an_unknown_item_returns_none(seeded):
 
 
 def test_resync_preserves_the_users_own_columns(seeded):
-    """A nightly sync must not resurrect something marked 已消化."""
+    """A nightly sync must not resurrect something marked 已学完."""
     from chekhovsgun.adapters.local import LocalFileAdapter
     from tests.conftest import DEMO
 

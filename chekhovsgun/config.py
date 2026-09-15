@@ -206,10 +206,24 @@ class RetrievalConfig:
     min_score_ratio: float = 0.45
     #: How many passages one saved item may contribute to the candidate list.
     max_chunks_per_item: int = 4
-    #: Items you marked 已消化 stop firing. They stay fully searchable — the
+    #: Items you marked 已学完 stop firing. They stay fully searchable — the
     #: point is to stop being interrupted about them, not to hide them.
     exclude_digested: bool = True
     exclude_same_video: bool = True
+    #: The popup stays silent until the library holds at least this many items.
+    #:
+    #: Confidence leans on IDF, and IDF means nothing over a handful of
+    #: documents: in a three-item library every word looks rare, so a page about
+    #: choosing a coffee grinder matches a post about choosing an index on the
+    #: strength of the shared word 选择 alone — scoring 0.38, indistinguishable
+    #: from a genuine five-term match. Sweeping a fixed set of unrelated queries
+    #: across growing library sizes put the false fires at 2/6 up to twelve
+    #: items and 0/6 from fifteen on, with every true match firing throughout;
+    #: hence the value here. Rather than distort scoring that is correct at
+    #: normal sizes, the popup waits until it has enough to be right, and the
+    #: dashboard shows how many more saves that takes so the quiet reads as
+    #: "not yet" rather than "broken". Explicit search is never gated.
+    min_library_items: int = 15
 
 
 @dataclass
@@ -336,6 +350,7 @@ def load_config(home: str | Path | None = None) -> Config:
     ret.top_k_items = _env_int("CHEKHOVSGUN_TOP_K_ITEMS", ret.top_k_items)
     ret.min_confidence = _env_float("CHEKHOVSGUN_MIN_CONFIDENCE", ret.min_confidence)
     ret.exclude_digested = _env_bool("CHEKHOVSGUN_EXCLUDE_DIGESTED", ret.exclude_digested)
+    ret.min_library_items = _env_int("CHEKHOVSGUN_MIN_LIBRARY_ITEMS", ret.min_library_items)
 
     whisper = cfg.whisper
     whisper.enabled = _env_bool("CHEKHOVSGUN_WHISPER_ENABLED", whisper.enabled)

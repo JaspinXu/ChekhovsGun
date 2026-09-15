@@ -7,46 +7,55 @@
 
 **The things you saved come find you — right when you're scrolling past something related.**
 
-We've all done it: you stumble onto a genuinely great tutorial, hit save, tell yourself
-you'll watch it later, and it stays in that folder forever. ChekhovsGun inverts the
-problem. Instead of hoping you'll remember to dig through your bookmarks, it waits until
-you're **actually watching** something related and tells you "you already saved this" —
-then reads you the relevant passage from what you saved.
+We've all done it: you stumble onto a genuinely great tutorial or a great answer, hit
+save, tell yourself you'll read it later, and it stays in that folder forever.
+ChekhovsGun inverts the problem. Instead of hoping you'll remember to dig through your
+bookmarks, it waits until you're **actually looking** at something related and tells you
+"you already saved this" — then reads you the relevant passage from what you saved.
 
-Everything runs locally. Your bookmarks and your watch history never leave this machine.
+The whole promise is: **just bookmark things.** You don't export anything, you don't
+file anything, you don't come back to a reading list. You click the save button you were
+already going to click, and the thing comes back to you when it is useful.
 
-<!-- YouTube and Bilibili are both supported, and saves on one side can fire on the
-     other: a Chinese explainer you saved can surface while you're watching an English
-     video, and vice versa. -->
+Videos and posts both, from platforms with an API and platforms without one. Everything
+runs locally; your bookmarks and your browsing never leave this machine.
 
 ---
 
 ## How it works
 
 ```
-  Bookmarks                  Index                     While you scroll
-┌──────────┐  subs / desc  ┌──────────────┐          ┌──────────────┐
-│ YouTube  │──────────────▶│ chunks + vec │          │  extension   │
-│  saves   │               │  + BM25 idx  │◀─────────│  sees the    │
-│ Bilibili │──────────────▶│    SQLite    │  hybrid  │ current video│
-└──────────┘               └──────────────┘retrieval └──────┬───────┘
-                                   │                        │
-                                   └────── matching save ───▶│  card pops
-                                          + a short read     └──────────┘
+  Two ways in                  Index                    While you scroll
+┌───────────────┐            ┌──────────────┐         ┌──────────────┐
+│ API adapters  │  subtitles │ chunks + vec │         │  extension   │
+│ YouTube · B站 │───────────▶│  + BM25 idx  │◀────────│  reads the   │
+├───────────────┤            │    SQLite    │ hybrid  │ page you're  │
+│ the browser   │  page text │              │retrieval│     on       │
+│ 知乎·小红书·…  │───────────▶│              │         └──────┬───────┘
+└───────────────┘            └──────────────┘                │
+       ▲                            │                        │
+   you click                        └──── matching save ─────▶│  card pops
+   「收藏」                                + a short read      └──────────┘
 ```
 
-1. **Ingest** — Pull saved videos from YouTube playlists / Liked / Watch Later and from
-   Bilibili favorite folders and Watch Later, along with their subtitles (both Bilibili's
-   human CC tracks and its AI-generated ones) and **top comments**. Videos with no
-   subtitles at all fall back to local Whisper transcription.
-2. **Index** — Cut subtitles into timestamped passages along the timeline, embed them,
-   and build a BM25 inverted index alongside.
+1. **Take things in**, two ways that meet in the same place:
+   - **Adapters** pull saved videos from YouTube playlists / Liked / Watch Later and from
+     Bilibili favourite folders, with subtitles (both Bilibili's human CC tracks and its
+     AI-generated ones) and **top comments**. Videos with no subtitles fall back to local
+     Whisper transcription.
+   - **The browser extension** captures whatever you save on sites that have no usable
+     API — Zhihu, Xiaohongshu, WeChat articles, Weibo, Reddit. It reads the page your
+     already-logged-in browser can see, so there are no credentials to hand over. There
+     is also a one-click scan that walks an existing favourites folder and takes in the
+     backlog you already have.
+2. **Index** — Cut the content into passages (timestamped for a video, paragraph-shaped
+   for a post), embed them, and build a BM25 inverted index alongside.
 3. **Retrieve** — Hybrid retrieval fused with RRF, plus a separate **confidence** score
    that decides whether this is worth interrupting you at all.
-4. **Fire** — The browser extension recognizes the video you're on; on a hit it floats a
-   card, and clicking through jumps straight to the second where your saved video covers
-   that exact thing.
-5. **Holster** — When you've watched it, hit "digested" and it stops bothering you.
+4. **Surface** — The extension recognizes the page you're on; on a hit it floats a card.
+   Clicking through jumps to the exact second of a video, or scrolls to and highlights
+   the exact paragraph of a post.
+5. **Close the loop** — When you've read it, hit "学完了" and it stops bothering you.
    That number — not the number of popups — is this project's success metric.
 
 ---
@@ -91,7 +100,43 @@ point of wiring up Bilibili and YouTube at the same time.
 
 ---
 
-## Connect your own bookmarks
+## Install the browser extension
+
+Do this first. It is the only part that needs no credentials at all, and it covers every
+site the adapters cannot reach.
+
+1. Open `chrome://extensions` in Chrome / Edge
+2. Turn on "Developer mode" in the top right
+3. Click "Load unpacked" and pick this repo's `extension/` directory
+4. Make sure `chekhovsgun serve` (or `chekhovsgun tray`) is running
+
+Then just use the web normally:
+
+- **Click a site's own 收藏 / save / bookmark button** and the page comes in. Zhihu,
+  Xiaohongshu, WeChat articles, Weibo, Juejin, CSDN, Jianshu, Reddit, X, Stack Overflow
+  and Medium ship with recipes; YouTube and Bilibili work too.
+- **On a favourites page**, a button appears: *把这个收藏夹收进藏知*. It scrolls the whole
+  folder, collects every link, and fetches the article text in the background — this is
+  how you bring in the backlog you already have.
+- **Anywhere else**, click the extension icon and press *收进藏知*. That uses `activeTab`,
+  so the extension is granted access for that one click and holds no standing permission
+  to read your browsing.
+
+The extension talks only to `http://127.0.0.1:8700` and makes no other network requests.
+Port, cooldown, per-site switches and auto-capture are all in its options page.
+
+> Some sites use one button for both saving and un-saving. Where the control exposes its
+> state we read it; where it doesn't, a click is treated as a save. Anything captured by
+> mistake can be deleted from the dashboard.
+
+Adding a site is one entry in `extension/recipes.js` — no Python changes, because the
+server canonicalises whatever URL arrives and names the source itself. A site with no
+recipe still works through the toolbar button: the generic reader picks out the element
+carrying the most text that isn't inside links, which is the article on nearly any page.
+
+---
+
+## Connect your video accounts
 
 ### Bilibili
 
@@ -154,23 +199,7 @@ chekhovsgun import urls.txt               # one link per line
 
 ---
 
-## Install the browser extension
-
-1. Open `chrome://extensions` in Chrome / Edge
-2. Turn on "Developer mode" in the top right
-3. Click "Load unpacked" and pick this repo's `extension/` directory
-4. Make sure `chekhovsgun serve` is running
-
-From then on, opening any video on YouTube or Bilibili floats a card in the bottom right
-if something related is sitting in your bookmarks. Click the title bar to collapse it, ×
-to dismiss, and "don't remind me about this video" to mute it until the browser restarts.
-
-The extension talks only to `http://127.0.0.1:8700` and makes no other network requests.
-Port, cooldown, and per-site enablement are all editable in the extension's options page.
-
----
-
-## Three content sources
+## Four content sources
 
 **Subtitles** do the heavy lifting. Bilibili's CC and AI tracks are both collected, with
 human ones preferred; YouTube goes through the player route.
@@ -200,17 +229,31 @@ spend at most 30 minutes per sync on transcription (both configurable). It hangs
 pipeline rather than living inside an adapter — it works given any URL, so a third source
 gets it for free.
 
+**Page text** is what makes posts work at all. The extension reads the article out of the
+page it is already looking at; for links collected by a folder scan, the server fetches
+them afterwards and runs the same extraction. That extractor is a heuristic rather than a
+dependency, and it rests on one rule: *the element carrying the most text that is not
+inside links is the article.* Navigation, sidebars, related-post rails and comment threads
+all fail that test because they are mostly anchors. One detail that is easy to get wrong —
+its length thresholds weight a CJK character as 2.5 latin ones, because a threshold tuned
+on English prose rejects Chinese articles several paragraphs long.
+
+```bash
+chekhovsgun capture https://www.zhihu.com/question/…   # take a page in by hand
+chekhovsgun hydrate                                    # fetch text for links already saved
+```
+
 ---
 
 ## The life of a save
 
 A save has three states, which exist to answer "what happens after it fires":
 
-| State | Meaning | Still pops? | Counts toward digestion rate? |
+| State | Meaning | Still pops? | Counts as done? |
 | --- | --- | --- | --- |
-| Active | Default | Yes | — |
-| **Digested** | You went back, watched it, learned something | No | **Yes** |
-| Muted | Stop bringing this up | No | No |
+| Active (还欠着) | Default | Yes | — |
+| **Digested (已学完)** | You went back, read it, learned something | No | **Yes** |
+| Muted (已静音) | Stop bringing this up | No | No |
 
 ```bash
 chekhovsgun mark https://www.bilibili.com/video/BV1xx --digested --tag attention
@@ -225,6 +268,28 @@ Two design details: **muting stops interruptions but not retrieval** — it stil
 when you search deliberately; and **re-syncing never overwrites your marks**. `upsert`
 deliberately leaves the `status` / `user_tags` / `note` columns alone, otherwise a nightly
 sync would resurrect everything you'd already digested.
+
+---
+
+## The popup waits until it can be trusted
+
+Below **15 saves the card never fires**, and the dashboard says how many more you need.
+
+This is not caution for its own sake. Confidence leans on IDF, and IDF means nothing over
+a handful of documents: in a three-item library every word looks rare, so a page about
+choosing a coffee grinder matches a saved post about choosing a database index on the
+strength of the shared word 选择 — and scores 0.38, indistinguishable from a genuine
+five-term match. Sweeping a fixed set of unrelated pages across growing library sizes put
+the false fires at 2/6 up to twelve items and **0/6 from fifteen on**, with every true
+match firing throughout.
+
+So rather than bend scoring that is correct at normal sizes, the popup declines to fire
+until it has enough to be right. Explicit search is never gated — silence is about not
+interrupting you, exactly like muting.
+
+```bash
+export CHEKHOVSGUN_MIN_LIBRARY_ITEMS=0    # if you would rather judge for yourself
+```
 
 ---
 
@@ -340,6 +405,8 @@ export CHEKHOVSGUN_LLM_BASE_URL=            # any OpenAI-compatible endpoint
 | `chekhovsgun ingest [--source X] [--limit N] [--force]` | Sync bookmarks |
 | `chekhovsgun ingest --whisper` / `--no-comments` | Force local transcription / skip comments |
 | `chekhovsgun import <file>` | Import from json/jsonl/csv/txt |
+| `chekhovsgun capture <url> [--file urls.txt]` | Take a page in by URL — what the extension does |
+| `chekhovsgun hydrate` | Fetch the article text of saves stored as bare links |
 | `chekhovsgun search "query"` | Search your own saves |
 | `chekhovsgun relate <url>` | Simulate: what would pop up on this video |
 | `chekhovsgun mark <url> --digested` | Mark digested / muted / tagged |
@@ -403,8 +470,17 @@ both. Pushing a tag has CI build artifacts for all three platforms plus the exte
   that's expected, and they're skipped.
 - The extension works on YouTube Shorts, but the vertical feed switches fast and the
   default 1.4 s debounce may still be too sensitive.
+- **Feeds are deliberately excluded.** The card only appears on an item's own page. On a
+  Zhihu or Xiaohongshu home feed a dozen posts share the viewport, and guessing which one
+  you are reading turns the card into harassment.
+- Site recipes are selectors, and selectors rot. When one breaks, that site falls back to
+  the generic reader rather than failing — but a specific recipe will always beat it, so
+  `extension/recipes.js` is the file to fix.
+- Captured pages are whatever your browser could see. A page behind a paywall or rendered
+  entirely by JavaScript after load may come in with its title and nothing else.
 - The desktop browser isn't where most people scroll — phones are, and that's a different
-  engineering problem.
+  engineering problem. `POST /api/relate` takes any URL plus text and answers, which is
+  the seam a phone client would plug into; nothing on the phone side exists yet.
 
 ## License
 

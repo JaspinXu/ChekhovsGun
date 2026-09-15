@@ -3,95 +3,92 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>ChekhovsGun · 契诃夫的枪</title>
+<title>藏知</title>
 <link rel="stylesheet" href="/app.css" />
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔫</text></svg>" />
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='88'>📖</text></svg>" />
 </head>
 <body>
 <header class="masthead">
   <div class="wrap">
-    <div class="brand">
-      <span class="mark" aria-hidden="true"></span>
-      <div>
-        <h1>ChekhovsGun</h1>
-        <p class="tagline">契诃夫的枪 · 挂在墙上的枪，第三幕必须开火</p>
-      </div>
+    <div>
+      <h1 class="wordmark">藏<span>知</span></h1>
+      <p class="epigraph">收藏不是学会。刷到相关内容时，把你收藏过的那一段讲给你听。</p>
     </div>
-    <div class="statline" id="statline"><span class="skeleton">…</span></div>
+    <a class="link-out" id="health" href="/docs">本地服务 · API</a>
   </div>
 </header>
 
-<main class="wrap">
-  <section class="panel" id="sources-panel">
-    <div class="panel-head">
-      <h2>来源 Sources</h2>
-      <button class="btn ghost" id="sync-all">同步全部</button>
+<main>
+  <section class="ledger">
+    <div class="wrap">
+      <div class="tally" id="tally"><span class="skeleton">正在读取藏书…</span></div>
+      <div class="shelf" id="shelf" aria-hidden="true"></div>
+      <p class="shelf-note" id="shelf-note"></p>
+      <div class="onboard" id="onboard" hidden></div>
     </div>
-    <div class="cards" id="sources"></div>
-    <div class="job" id="job" hidden></div>
   </section>
 
-  <section class="panel">
-    <div class="panel-head">
-      <h2>开火预览 Fire preview</h2>
-      <span class="hint">粘贴一个 YouTube / Bilibili 链接，看看你的收藏会不会被触发</span>
-    </div>
-    <form class="row" id="relate-form">
-      <input type="text" id="relate-input" placeholder="https://www.bilibili.com/video/BV… 或 https://youtu.be/… 或直接输入标题" autocomplete="off" />
-      <button class="btn primary" type="submit">试一枪</button>
-    </form>
-    <div id="relate-result" class="result"></div>
-  </section>
+  <div class="wrap">
+    <section class="panel">
+      <div class="panel-head">
+        <h2>问一问</h2>
+        <span class="hint">贴一个链接，看看刷到它会不会提醒你；输入词句，就是搜你自己的收藏。</span>
+      </div>
+      <form class="row" id="ask-form">
+        <input type="text" id="ask-input" autocomplete="off"
+               placeholder="粘贴任意链接，或输入你想找的东西…" />
+        <button class="btn primary" type="submit">查</button>
+      </form>
+      <div id="ask-result" class="result"></div>
+    </section>
 
-  <section class="panel">
-    <div class="panel-head">
-      <h2>检索 Search</h2>
-      <span class="hint">混合检索：向量召回 + BM25，RRF 融合，再按置信度筛选</span>
-    </div>
-    <form class="row" id="search-form">
-      <input type="text" id="search-input" placeholder="搜索你收藏过的内容…" autocomplete="off" />
-      <select id="search-source">
-        <option value="">全部来源</option>
-        <option value="youtube">YouTube</option>
-        <option value="bilibili">Bilibili</option>
-      </select>
-      <button class="btn" type="submit">搜索</button>
-    </form>
-    <div id="search-result" class="result"></div>
-  </section>
+    <section class="panel">
+      <div class="panel-head">
+        <h2>收进来</h2>
+        <span class="hint">装上浏览器扩展后，你在网站上点「收藏」，这里就会多一条。</span>
+        <span class="spacer"></span>
+        <button class="btn" id="sync-all">同步全部</button>
+      </div>
+      <div class="cards" id="sources"></div>
+      <div class="job" id="job" hidden></div>
+    </section>
 
-  <section class="panel">
-    <div class="panel-head">
-      <h2>弹药库 Library</h2>
-      <span class="hint" id="library-count"></span>
-    </div>
-    <div class="row filters">
-      <select id="library-status">
-        <option value="">全部状态</option>
-        <option value="active">待消化</option>
-        <option value="digested">已消化</option>
-        <option value="muted">已静音</option>
-      </select>
-      <select id="library-source">
-        <option value="">全部来源</option>
-        <option value="youtube">YouTube</option>
-        <option value="bilibili">Bilibili</option>
-      </select>
-      <select id="library-tag"><option value="">全部标签</option></select>
-    </div>
-    <div id="library" class="library"></div>
-    <button class="btn ghost wide" id="load-more" hidden>加载更多</button>
-  </section>
+    <section class="panel">
+      <div class="panel-head">
+        <h2>藏书</h2>
+        <span class="hint" id="library-count"></span>
+      </div>
+      <div class="row filters">
+        <select id="library-status" aria-label="按状态筛选">
+          <option value="">全部</option>
+          <option value="active">还欠着</option>
+          <option value="digested">已学完</option>
+          <option value="muted">已静音</option>
+        </select>
+        <select id="library-media" aria-label="按类型筛选">
+          <option value="">视频和帖子</option>
+          <option value="video">只看视频</option>
+          <option value="post">只看帖子</option>
+        </select>
+        <select id="library-source" aria-label="按来源筛选">
+          <option value="">全部来源</option>
+        </select>
+        <select id="library-tag" aria-label="按标签筛选"><option value="">全部标签</option></select>
+      </div>
+      <div id="library" class="library"></div>
+      <button class="btn wide" id="load-more" hidden>再看 20 条</button>
+    </section>
 
-  <section class="panel">
-    <div class="panel-head"><h2>最近开火 Recent shots</h2></div>
-    <ul id="events" class="events"></ul>
-  </section>
+    <section class="panel">
+      <div class="panel-head"><h2>最近</h2></div>
+      <ul id="events" class="events"></ul>
+    </section>
+  </div>
 </main>
 
 <footer class="wrap foot">
-  <span>ChekhovsGun · 本地运行，索引与观看记录都不会离开这台机器</span>
-  <a href="/docs">API docs</a>
+  <span>藏知 ChekhovsGun · 全部在本地运行，收藏和浏览记录不会离开这台机器。</span>
+  <a href="/docs">API</a>
 </footer>
 
 <script src="/app.js"></script>

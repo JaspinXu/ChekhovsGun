@@ -14,11 +14,21 @@ import threading
 import time
 from typing import Any, Callable, Iterable
 
-from .adapters import AdapterError, SourceAdapter, build_adapter, context_from_url
+from . import sites
+from .adapters import AdapterError, SourceAdapter, build_adapter, context_from_url, identify_url
 from .config import Config, load_config
 from .ingest import IngestPipeline, IngestReport
 from .llm.explain import Explainer, Explanation
-from .models import STATUS_DIGESTED, STATUS_MUTED, Context, ItemHit
+from .models import (
+    MEDIA_POST,
+    STATUS_DIGESTED,
+    STATUS_MUTED,
+    Comment,
+    Context,
+    ItemHit,
+    SavedItem,
+    Segment,
+)
 from .rag.embeddings import Embedder, get_embedder
 from .rag.retriever import Retriever
 from .rag.store import Store
@@ -27,6 +37,30 @@ log = logging.getLogger(__name__)
 
 CACHE_TTL = 180.0
 CACHE_MAX = 256
+
+#: Fields a capture payload may carry, beyond the url that is always required.
+_CAPTURE_FIELDS = (
+    "title", "author", "text", "excerpt", "thumbnail", "folder", "source",
+    "media_kind", "tags", "comments", "published_at", "saved_at",
+)
+
+
+def _capture_kwargs(row: dict[str, Any]) -> dict[str, Any]:
+    return {key: row[key] for key in _CAPTURE_FIELDS if row.get(key)}
+
+
+def _paragraph_segments(text: str) -> list[Segment]:
+    """Split a post body into untimed segments, one per paragraph.
+
+    Paragraphs are the closest thing a post has to subtitle cues, and feeding
+    them through the same merger the transcript path uses means a post's chunks
+    obey exactly the same size rules as a video's — so retrieval does not have
+    to know which kind of item it is looking at.
+    """
+    if not text:
+        return []
+    paragraphs = [" ".join(part.split()) for part in text.replace("\r", "").split("\n")]
+    return [Segment(text=part) for part in paragraphs if part]
 
 
 class Engine:
@@ -38,6 +72,7 @@ class Engine:
         self._embedder: Embedder | None = None
         self._retriever: Retriever | None = None
         self._explainer: Explainer | None = None
+        self._pipeline: IngestPipeline | None = None
         self._cache: dict[str, tuple[float, dict[str, Any]]] = {}
 
     # ------------------------------------------------------------ lazy wiring
@@ -71,11 +106,24 @@ class Engine:
                 self._explainer = Explainer(self.config.llm)
             return self._explainer
 
+    @property
+    def pipeline(self) -> IngestPipeline:
+        """Shared because capture calls it once per saved page, not once per sync.
+
+        Building one costs a Whisper availability probe, which is cheap but not
+        free, and there is nothing per-run in a pipeline's state.
+        """
+        with self._lock:
+            if self._pipeline is None:
+                self._pipeline = IngestPipeline(self.config, self.store, self.embedder)
+            return self._pipeline
+
     def close(self) -> None:
         with self._lock:
             if self._store is not None:
                 self._store.close()
                 self._store = None
+            self._pipeline = None
 
     # ------------------------------------------------------------------ cache
     def _cache_key(self, context: Context, limit: int) -> str:
@@ -132,6 +180,18 @@ class Engine:
                 "explanation": None,
             }
 
+        needed = self.config.retrieval.min_library_items
+        held = self.store.item_count()
+        if held < needed:
+            return {
+                "fired": False,
+                "reason_code": "library_too_small",
+                "reason": f"only {held} saves indexed; the popup waits for {needed}",
+                "hits": [],
+                "explanation": None,
+                "library": {"items": held, "needed": needed},
+            }
+
         key = self._cache_key(context, limit)
         if use_cache:
             cached = self._cache_get(key)
@@ -167,13 +227,23 @@ class Engine:
             )
         return result
 
-    def relate_url(self, url: str, **kwargs: Any) -> dict[str, Any]:
+    def relate_url(self, url: str, *, fetch_missing: bool = False, **kwargs: Any) -> dict[str, Any]:
+        """Answer "would this page have interrupted me?" for a bare URL.
+
+        The extension never comes through here — it has already read the page and
+        posts the text. This is for a URL typed into the dashboard or the CLI,
+        where the only thing we know is the address. If the page is already in
+        the library we match on what we stored; otherwise there is nothing to
+        match on at all, and ``fetch_missing`` says whether it is acceptable to
+        go and read the page. Off by default, because a retrieval call reaching
+        out to the network is a surprise worth opting into.
+        """
         context = context_from_url(url)
         if context is None:
             return {
                 "fired": False,
                 "reason_code": "unknown_url",
-                "reason": f"not a YouTube or Bilibili url: {url}",
+                "reason": f"not a usable url: {url!r}",
                 "hits": [],
                 "explanation": None,
             }
@@ -182,6 +252,23 @@ class Engine:
             context.title = context.title or stored.title
             context.author = context.author or stored.author
             context.description = context.description or stored.description
+        elif fetch_missing:
+            from .extract import fetch_readable
+
+            readable = fetch_readable(url)
+            context.title = readable.title
+            context.author = readable.author
+            context.description = readable.text[:4000]
+        if not (context.title or context.description):
+            # Saying "nothing matched" here would be a lie: we never had
+            # anything to match against in the first place.
+            return {
+                "fired": False,
+                "reason_code": "page_unreadable",
+                "reason": "couldn't read anything from that page to match on",
+                "hits": [],
+                "explanation": None,
+            }
         result = self.relate(context, **kwargs)
         # Previewing a URL that is itself in the library is the common confusing
         # case: the video is excluded from its own results by design, so say so
@@ -214,6 +301,168 @@ class Engine:
             self.store.log_event("status", source=item.source, item_id=item.id,
                                  payload={"status": status})
         return item.to_dict()
+
+    # ---------------------------------------------------------------- capture
+    def capture(
+        self,
+        url: str,
+        *,
+        title: str = "",
+        author: str = "",
+        text: str = "",
+        excerpt: str = "",
+        thumbnail: str = "",
+        folder: str = "",
+        source: str = "",
+        media_kind: str = "",
+        tags: Iterable[str] | None = None,
+        comments: Iterable[dict[str, Any]] | None = None,
+        published_at: float = 0.0,
+        saved_at: float = 0.0,
+        origin: str = "extension",
+        force: bool = False,
+    ) -> dict[str, Any]:
+        """Take in a page the browser read for us.
+
+        This is the other half of ingest. An adapter goes out and fetches what a
+        platform will admit to; capture receives what the user's own logged-in
+        browser can already see — which is the only way to reach sites with no
+        API, and the only way to reach content behind a login without asking for
+        a password. The page arrives already extracted, so there is nothing to
+        fetch and the whole call is chunk → embed → store.
+        """
+        url = (url or "").strip()
+        if not url:
+            raise ValueError("capture needs a url")
+        canonical = sites.canonical_url(url)
+        detected_source, source_id, detected_kind = identify_url(canonical)
+        item = SavedItem(
+            source=source or detected_source or sites.GENERIC_SOURCE,
+            source_id=source_id,
+            media_kind=media_kind or detected_kind or MEDIA_POST,
+            title=(title or canonical)[:300],
+            url=canonical,
+            author=author[:120],
+            # The excerpt is metadata; the body goes in as segments. For a post
+            # the chunker drops the description when a body is present, so
+            # sending both never double-indexes the same prose.
+            description=excerpt[:4000],
+            thumbnail=thumbnail,
+            folder=folder[:120],
+            published_at=published_at,
+            saved_at=saved_at or time.time(),
+            tags=[str(t)[:40] for t in (tags or []) if t][:20],
+            extra={"captured_via": origin},
+        )
+        segments = _paragraph_segments(text)
+        comment_objects = [
+            Comment(
+                text=str(row.get("text", ""))[:2000],
+                author=str(row.get("author", ""))[:80],
+                likes=int(row.get("likes", 0) or 0),
+                replies=[str(r)[:800] for r in (row.get("replies") or [])][:4],
+            )
+            for row in (comments or [])
+            if str(row.get("text", "")).strip()
+        ]
+        outcome = self.pipeline.ingest_one(
+            item,
+            segments,
+            comment_objects,
+            transcript_source="capture" if segments else "pending",
+            force=force,
+        )
+        if outcome.state != "skipped":
+            self.invalidate_cache()
+            self.store.log_event(
+                "captured",
+                source=item.source,
+                item_id=item.id,
+                payload={
+                    "title": item.title[:120],
+                    "origin": origin,
+                    "body_chars": len(text or ""),
+                    "state": outcome.state,
+                },
+            )
+        return {
+            "item_id": item.id,
+            "state": outcome.state,
+            "chunks": outcome.chunks,
+            "error": outcome.error,
+            "url": canonical,
+            "source": item.source,
+            "media_kind": item.media_kind,
+            "needs_body": not segments,
+        }
+
+    def capture_many(
+        self, rows: Iterable[dict[str, Any]], *, origin: str = "scan"
+    ) -> dict[str, Any]:
+        """Bulk capture, used by the favourites scan. Never raises for one bad row."""
+        summary = {"added": 0, "updated": 0, "skipped": 0, "failed": 0, "needs_body": 0}
+        errors: list[str] = []
+        for row in rows:
+            try:
+                result = self.capture(str(row.get("url", "")), origin=origin, **_capture_kwargs(row))
+            except Exception as exc:
+                summary["failed"] += 1
+                if len(errors) < 20:
+                    errors.append(str(exc)[:200])
+                continue
+            state = result["state"]
+            summary[state] = summary.get(state, 0) + 1
+            if result["needs_body"]:
+                summary["needs_body"] += 1
+        return {**summary, "errors": errors}
+
+    def pending_body_count(self) -> int:
+        return self.store.count_items_awaiting_body()
+
+    def hydrate_pending(
+        self, *, limit: int = 200, progress: Callable[[str, dict], None] | None = None
+    ) -> dict[str, Any]:
+        """Fetch and index the bodies of items captured as bare links.
+
+        The favourites scan collects hundreds of links in the time it would take
+        to load a handful of pages, so it stores them immediately and leaves the
+        bodies to this. An item whose page cannot be read — a login wall, a
+        JavaScript-only app, a dead link — keeps its title and stops being
+        retried, because retrying it on every run would starve the ones that can
+        be read.
+        """
+        from .extract import fetch_readable
+
+        done = {"fetched": 0, "indexed": 0, "failed": 0, "chunks": 0}
+        items = self.store.items_awaiting_body(limit=limit)
+        for index, item in enumerate(items, 1):
+            if progress:
+                progress("hydrate", {"title": item.title, "seen": index, "total": len(items)})
+            readable = fetch_readable(item.url)
+            done["fetched"] += 1
+            if not readable:
+                # Mark it resolved-but-empty so the next run skips it.
+                self.store.set_transcript_source(item.id, "none")
+                done["failed"] += 1
+                continue
+            if readable.title and (not item.title or item.title == item.url):
+                item.title = readable.title[:300]
+            if readable.author and not item.author:
+                item.author = readable.author[:120]
+            outcome = self.pipeline.ingest_one(
+                item,
+                _paragraph_segments(readable.text),
+                transcript_source="capture",
+                force=True,
+            )
+            if outcome.state == "failed":
+                done["failed"] += 1
+                continue
+            done["indexed"] += 1
+            done["chunks"] += outcome.chunks
+        if done["indexed"]:
+            self.invalidate_cache()
+        return done
 
     # ----------------------------------------------------------------- ingest
     def adapters(self, names: Iterable[str] | None = None) -> list[SourceAdapter]:
@@ -284,11 +533,16 @@ class Engine:
             )
             adapter.close()
         stats = self.store.stats()
+        stats["pending_body"] = self.store.count_items_awaiting_body()
         return {
             "version": __import__("chekhovsgun").__version__,
             "stats": stats,
             "adapters": adapters,
             "embedding": self.embedder.signature,
+            # How many saves the popup needs before it trusts itself. Clients
+            # show the gap so a deliberately quiet extension does not read as a
+            # broken one.
+            "popup_threshold": self.config.retrieval.min_library_items,
             "llm": {
                 "enabled": self.config.llm.enabled,
                 "usable": self.config.llm.usable,

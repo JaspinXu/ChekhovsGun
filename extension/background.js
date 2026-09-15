@@ -9,7 +9,16 @@
 const DEFAULTS = {
   enabled: true,
   serverUrl: "http://127.0.0.1:8700",
-  sites: { youtube: true, bilibili: true },
+  // Per-source switches. A site absent from this map defaults to on, so adding
+  // a recipe does not require touching settings.
+  sites: {
+    youtube: true, bilibili: true, zhihu: true, xiaohongshu: true, wechat: true,
+    weibo: true, juejin: true, csdn: true, jianshu: true, reddit: true,
+    x: true, stackoverflow: true, medium: true,
+  },
+  // Capture automatically when you click a site's own 收藏 button. This is the
+  // whole "只需要收藏" promise; turning it off leaves the toolbar button.
+  captureOnSave: true,
   cooldownMinutes: 45,
   maxItems: 3,
   explain: true,
@@ -96,6 +105,39 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
         case "relate":
           sendResponse(await handleRelate(message.context || {}));
           break;
+        case "capture": {
+          const settings = await getSettings();
+          if (message.payload?.origin === "save-click" && !settings.captureOnSave) {
+            sendResponse({ ok: true, state: "skipped", reason: "captureOnSave disabled" });
+            break;
+          }
+          const saved = await request("/api/capture", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(message.payload || {}),
+          });
+          // A new save can change what fires anywhere, so the relate cache for
+          // every page is stale, not just this one's.
+          cache.clear();
+          sendResponse({ ok: true, ...saved });
+          break;
+        }
+        case "captureBatch": {
+          const saved = await request(
+            "/api/capture/batch",
+            {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(message.payload || {}),
+            },
+            // A folder scan sends hundreds of rows; the default timeout is for
+            // single requests and would abort a large one mid-write.
+            120000
+          );
+          cache.clear();
+          sendResponse({ ok: true, ...saved });
+          break;
+        }
         case "settings":
           sendResponse(await getSettings());
           break;

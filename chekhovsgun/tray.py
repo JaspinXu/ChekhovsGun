@@ -154,7 +154,7 @@ class TrayApp:
             stats = self.engine.store.stats()
         except Exception:  # pragma: no cover
             return "索引不可用"
-        return f"{stats['items']} 个收藏 · 已消化 {stats.get('items_digested', 0)}"
+        return f"{stats['items']} 条收藏 · 已学完 {stats.get('items_digested', 0)}"
 
     def quit(self, icon: Any, *_args: Any) -> None:
         if self._server is not None:

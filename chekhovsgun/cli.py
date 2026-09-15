@@ -4,6 +4,7 @@
     chekhovsgun ingest          # sync every configured source
     chekhovsgun serve           # start the local API + dashboard
     chekhovsgun relate <url>    # what would fire on this video?
+    chekhovsgun capture <url>   # take in a page by hand (what the extension does)
 """
 
 from __future__ import annotations
@@ -102,8 +103,18 @@ def cmd_status(engine: Engine, args: argparse.Namespace) -> int:
     print(f"  chunks          {stats['chunks']}")
     by_source = ", ".join(f"{k}={v}" for k, v in sorted(stats["by_source"].items())) or "—"
     print(f"  by source       {by_source}")
+    by_media = stats.get("by_media") or {}
+    print(f"  视频 / 帖子      {by_media.get('video', 0)} / {by_media.get('post', 0)}")
+    if stats.get("pending_body"):
+        print(style.yellow(f"  待取正文         {stats['pending_body']}  (run `chekhovsgun hydrate`)"))
+    needed = engine.config.retrieval.min_library_items
+    if stats["items"] < needed:
+        print(style.yellow(
+            f"  弹窗未启用       再收藏 {needed - stats['items']} 条就会开始提醒 "
+            f"(库太小时 IDF 不可靠，会误弹；搜索不受影响)"
+        ))
     print(f"  已开火 fired     {stats['items_fired']}  ({stats['fire_rate'] * 100:.1f}% of library)")
-    print(f"  已消化 digested  {stats['items_digested']}  ({stats['coverage'] * 100:.1f}% — the number that matters)")
+    print(f"  已学完 digested  {stats['items_digested']}  ({stats['coverage'] * 100:.1f}% — the number that matters)")
     if stats.get("comment_chunks"):
         print(f"  评论片段         {stats['comment_chunks']}")
     if stats.get("items_transcribed"):
@@ -182,6 +193,60 @@ def cmd_import(engine: Engine, args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_capture(engine: Engine, args: argparse.Namespace) -> int:
+    """Take in a page by URL, the same path the browser extension uses.
+
+    Useful without the extension installed, and the quickest way to check that a
+    site extracts cleanly before trusting a whole folder to the scan.
+    """
+    urls: list[str] = list(args.urls)
+    if args.file:
+        path = Path(args.file).expanduser()
+        if not path.exists():
+            print(style.red(f"no such file: {path}"))
+            return 1
+        urls.extend(
+            line.strip()
+            for line in path.read_text(encoding="utf-8").splitlines()
+            if line.strip() and not line.startswith("#")
+        )
+    if not urls:
+        print(style.red("nothing to capture — pass one or more urls, or --file"))
+        return 1
+
+    print(style.bold(f"capturing {len(urls)} page(s)…"))
+    summary = engine.capture_many(
+        [{"url": url, "folder": args.folder} for url in urls], origin="cli"
+    )
+    print(f"  new {summary['added']} · updated {summary['updated']} · unchanged {summary['skipped']}"
+          f" · failed {summary['failed']}")
+    for error in summary["errors"][:5]:
+        print(style.red(f"  ! {error}"))
+    if summary["needs_body"]:
+        print(style.dim(f"  {summary['needs_body']} page(s) still need their text fetched"))
+        return cmd_hydrate(engine, args)
+    return 0
+
+
+def cmd_hydrate(engine: Engine, args: argparse.Namespace) -> int:
+    """Fetch and index the bodies of saves that arrived as bare links."""
+    pending = engine.pending_body_count()
+    if not pending:
+        print(style.dim("nothing waiting for its text"))
+        return 0
+    print(style.bold(f"fetching text for {pending} save(s)…"))
+    done = engine.hydrate_pending(
+        limit=getattr(args, "limit", None) or 500,
+        progress=lambda _stage, payload: print(
+            style.dim(f"  [{payload['seen']}/{payload['total']}] {payload['title'][:60]}")
+        ),
+    )
+    print(f"  indexed {done['indexed']} · unreadable {done['failed']} · chunks {done['chunks']}")
+    if done["failed"]:
+        print(style.dim("  unreadable pages keep their title; they are not retried"))
+    return 0
+
+
 def cmd_demo(engine: Engine, args: argparse.Namespace) -> int:
     print(style.bold("seeding a sample library so you can try retrieval right now…"))
     adapter = LocalFileAdapter(engine.config, DEMO_DATA, source="local")
@@ -222,7 +287,9 @@ def cmd_search(engine: Engine, args: argparse.Namespace) -> int:
 
 def cmd_relate(engine: Engine, args: argparse.Namespace) -> int:
     if args.url.startswith("http"):
-        result = engine.relate_url(args.url, limit=args.limit, use_cache=False)
+        result = engine.relate_url(
+            args.url, limit=args.limit, use_cache=False, fetch_missing=not args.no_fetch
+        )
     else:
         result = engine.relate(
             Context(title=args.url), limit=args.limit, use_cache=False
@@ -290,8 +357,8 @@ def cmd_mark(engine: Engine, args: argparse.Namespace) -> int:
     if updated is None:
         print(style.red(f"no such item: {target}"), file=sys.stderr)
         return 1
-    labels = {"digested": style.green("已消化"), "muted": style.yellow("已静音"),
-              "active": "待消化"}
+    labels = {"digested": style.green("已学完"), "muted": style.yellow("已静音"),
+              "active": "还欠着"}
     print(f"  {style.bold(updated['title'])}")
     print(style.dim(f"    {labels.get(updated['status'], updated['status'])}"
                     f"{' · ' + ', '.join(updated['user_tags']) if updated['user_tags'] else ''}"))
@@ -401,6 +468,17 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--force", action="store_true")
     p.set_defaults(func=cmd_import)
 
+    p = sub.add_parser("capture", help="take in a page by url (what the extension does)")
+    p.add_argument("urls", nargs="*", help="one or more page urls")
+    p.add_argument("--file", help="a text file with one url per line")
+    p.add_argument("--folder", default="", help="label these saves, e.g. '知乎收藏夹/检索'")
+    p.add_argument("--limit", type=int, default=500, help="max pages to fetch text for")
+    p.set_defaults(func=cmd_capture)
+
+    p = sub.add_parser("hydrate", help="fetch the text of saves stored as bare links")
+    p.add_argument("--limit", type=int, default=500)
+    p.set_defaults(func=cmd_hydrate)
+
     p = sub.add_parser("demo", help="seed a sample library and run one retrieval")
     p.set_defaults(func=cmd_demo)
 
@@ -411,10 +489,12 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--json", action="store_true")
     p.set_defaults(func=cmd_search)
 
-    p = sub.add_parser("relate", help="what would fire if you opened this video?")
+    p = sub.add_parser("relate", help="what would pop up if you opened this page?")
     p.add_argument("url", help="a YouTube/Bilibili url, or just some text")
     p.add_argument("--limit", type=int, default=5)
     p.add_argument("--json", action="store_true")
+    p.add_argument("--no-fetch", action="store_true",
+                   help="don't read the page; match on what is already indexed")
     p.set_defaults(func=cmd_relate)
 
     p = sub.add_parser("items", help="list indexed items")
@@ -430,7 +510,7 @@ def build_parser() -> argparse.ArgumentParser:
     group = p.add_mutually_exclusive_group()
     group.add_argument("--digested", action="store_true", help="你看完了，停止提醒（计入覆盖率）")
     group.add_argument("--muted", action="store_true", help="别再拿这个烦我（不计入覆盖率）")
-    group.add_argument("--active", action="store_true", help="放回待消化")
+    group.add_argument("--active", action="store_true", help="放回「还欠着」")
     p.add_argument("--tag", action="append", help="add a tag (repeatable)")
     p.add_argument("--untag", action="append", help="remove a tag (repeatable)")
     p.add_argument("--note", help="attach a note")

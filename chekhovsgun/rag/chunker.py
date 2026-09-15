@@ -26,8 +26,14 @@ def chunk_segments(
     overlap_chars: int = 80,
     max_seconds: float = 90.0,
     start_ordinal: int = 0,
+    kind: str = "transcript",
 ) -> list[Chunk]:
-    """Merge timed segments into overlapping passages."""
+    """Merge timed segments into overlapping passages.
+
+    A post's body arrives through here too, as untimed segments. Only the label
+    differs — calling a Zhihu answer's paragraphs "字幕" in the UI would be a lie
+    — so the caller passes ``kind``.
+    """
     chunks: list[Chunk] = []
     buffer: list[Segment] = []
     buffer_len = 0
@@ -46,7 +52,7 @@ def chunk_segments(
                     text=text,
                     start=buffer[0].start,
                     end=buffer[-1].end or buffer[-1].start,
-                    kind="transcript",
+                    kind=kind,
                 )
             )
             ordinal += 1
@@ -84,7 +90,7 @@ def chunk_segments(
                     text=text,
                     start=buffer[0].start,
                     end=buffer[-1].end or buffer[-1].start,
-                    kind="transcript",
+                    kind=kind,
                 )
             )
     return chunks
@@ -160,7 +166,14 @@ def chunk_item(
     chunks: list[Chunk] = [Chunk(item_id=item.id, ordinal=0, text=header, kind="title")]
     ordinal = 1
 
+    body_kind = "body" if item.is_post else "transcript"
+
+    # A post's description and its body are usually the same text arriving twice
+    # (the capture sends an excerpt as the description). Indexing both would
+    # double every passage and let one item dominate its own results.
     description = _clean(item.description)
+    if item.is_post and segments:
+        description = ""
     if description:
         desc_chunks = chunk_text(
             item.id,
@@ -180,6 +193,7 @@ def chunk_item(
             overlap_chars=cfg.chunk_overlap_chars,
             max_seconds=cfg.chunk_max_seconds,
             start_ordinal=ordinal,
+            kind=body_kind,
         )
         chunks.extend(transcript_chunks)
         ordinal += len(transcript_chunks)

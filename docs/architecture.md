@@ -7,6 +7,8 @@ chekhovsgun/
 ├── http.py            带退避和限速的共享 HTTP 客户端
 ├── engine.py          门面：CLI 和服务端都只跟它打交道
 ├── ingest.py          适配器 → 字幕/评论 → 分块 → 向量 → 索引（增量）
+├── sites.py           URL 归一化 + 站点识别（视频站以外的一切）
+├── extract.py         从 HTML 里抽正文（收藏夹扫描和 URL 导入用）
 ├── transcribe.py      没有字幕时的本地 Whisper 兜底（挂在管线上，与来源无关）
 ├── tray.py            托盘常驻，免终端
 ├── cli.py             命令行
@@ -25,6 +27,7 @@ chekhovsgun/
 ├── llm/explain.py     可选的解读生成，默认降级为原文摘录
 └── server/            FastAPI + 仪表盘
 extension/             MV3 浏览器扩展
+  recipes.js           站点规则表：加一个新站点只改这一个文件
 packaging/             PyInstaller 入口与图标
 ```
 
@@ -49,13 +52,31 @@ packaging/             PyInstaller 入口与图标
 **UI 放在 shadow DOM 里。** YouTube 和 B 站都有很强的全局样式，
 影子树是保证卡片在两边长得一样、且不污染页面的唯一可靠方式。
 
+**采集是入库的另一半，不是第二套管线。** 适配器出去问平台要数据；采集接收用户
+自己登录的浏览器已经看得到的东西——这是够到没有 API 的站点的唯一办法，也是不要求
+用户交出密码就能读到登录后内容的唯一办法。两条路在 `IngestPipeline.ingest_one()`
+汇合：它就是「收下一件收藏」的全部定义（判断有没有变、分块、向量化、落库）。
+`run()` 取完 adapter 的内容后调它，`/api/capture` 内容本来就在手里所以直接调它。
+下游因此完全不需要知道一条收藏是同步来的还是采集来的。
+
+**站点知识分两处，各管各的，不需要同步机制。** DOM 探针只能在扩展里
+（`extension/recipes.js`），URL 归一化只能在服务端（`chekhovsgun/sites.py`，
+`relate_url` 和去重都要用）。两边唯一重叠的是 source 名字那个字符串，
+而采集请求本来就带着它，所以不存在需要保持一致的第二份数据。
+
+**内容哈希对帖子和视频不对称。** `content_hash()` 把正文算进帖子的哈希，
+但不算进视频的。原因在于正文从哪来：视频的字幕是在哈希比对**之后**才去取的——
+跳过这一步正是比对的全部意义——把字幕算进去就等于每次同步都要先下载一遍全部字幕
+才能发现没事可做。帖子的正文跟标题在同一个请求里就到了，哈希它零成本，
+而这正是「重新采集一篇改过的回答能正确更新」所依赖的。
+
 **转写为什么不在 adapter 里。** 它只需要一个 URL 就能工作，所以放在管线上，
 两个来源都自动拥有，以后加第三个来源时也是白送的。同理，它的开销是分钟级的，
 所以闸门（单视频时长上限、每次同步的总预算）也在这一层，而不是散落在各个 adapter。
 
 **用户列和平台列是分开的。** `status` / `user_tags` / `note` 由用户拥有，
 `upsert_item` 的 ON CONFLICT 子句刻意不更新它们——否则每晚一次同步就会把用户
-标记过"已消化"的东西全部复活。这条有测试钉着（`test_resync_preserves_the_users_own_columns`）。
+标记过「已学完」的东西全部复活。这条有测试钉着（`test_resync_preserves_the_users_own_columns`）。
 
 **迁移只能加列，不能在基础 schema 里引用新列。** 老库上 `CREATE TABLE IF NOT EXISTS`
 是空操作，如果基础 schema 里有一句 `CREATE INDEX ... ON items(status)`，
@@ -63,6 +84,10 @@ packaging/             PyInstaller 入口与图标
 这个坑有测试（`test_migrates_an_older_index_in_place`）。
 
 ## 检索链路
+
+弹窗还有一道与打分无关的闸：库里不足 `min_library_items`（默认 15）条时一律不弹。
+IDF 在只有几篇文档时没有意义，此时一个共享的常用词就足以让完全不相干的东西拿到
+和真正命中一样的分数。这条闸只拦弹窗，不拦主动搜索。
 
 ```
 查询文本
