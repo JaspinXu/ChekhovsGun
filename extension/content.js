@@ -241,7 +241,7 @@
   async function captureThisPage(origin, { quiet = false } = {}) {
     const page = readPage(recipe);
     if (!page.title) return { ok: false };
-    if (!quiet) toast("正在收进藏知…", page.title.slice(0, 60), { sticky: true });
+    if (!quiet) toast("正在收进 ChekhovsGun…", page.title.slice(0, 60), { sticky: true });
     const result = await send({ type: "capture", payload: { ...page, origin } });
     if (result && result.ok === false) {
       toast("没能收进来", result.error || "本地服务没启动？", { ms: 4200 });
@@ -249,7 +249,7 @@
     }
     const state = result?.state;
     toast(
-      state === "skipped" ? "已经在藏知里了" : "已收进藏知",
+      state === "skipped" ? "已经在 ChekhovsGun 里了" : "已收进 ChekhovsGun",
       state === "skipped"
         ? page.title.slice(0, 60)
         : `${page.title.slice(0, 44)} · 之后刷到相关内容会提醒你`
@@ -312,7 +312,7 @@
       toast("没找到可以收的条目", "这个页面的结构可能变了", { ms: 4200 });
       return;
     }
-    toast("正在收进藏知…", `${seen.size} 条`, { sticky: true });
+    toast("正在收进 ChekhovsGun…", `${seen.size} 条`, { sticky: true });
     const result = await send({
       type: "captureBatch",
       payload: { items: [...seen.values()], origin: "scan" },
@@ -337,7 +337,7 @@
     mount.id = "chekhovsgun-scan";
     mount.style.cssText = "all:initial;position:fixed;z-index:2147482000;";
     const root = mount.attachShadow({ mode: "open" });
-    root.innerHTML = `<style>${CSS}</style><button class="scan">把这个收藏夹收进藏知</button>`;
+    root.innerHTML = `<style>${CSS}</style><button class="scan">把这个收藏夹收进 ChekhovsGun</button>`;
     root.querySelector(".scan").addEventListener("click", () => {
       mount.remove();
       scanFavourites();
@@ -384,7 +384,7 @@
     shadow.innerHTML = `
       <style>${CSS}</style>
       <section class="root${settings.autoCollapse ? " collapsed" : ""}" role="complementary"
-               aria-label="藏知">
+               aria-label="ChekhovsGun">
         <header id="head" title="点击折叠 / 展开">
           <span class="mark"></span>
           <span class="brand">你收藏过相关的</span>

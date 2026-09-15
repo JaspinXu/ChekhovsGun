@@ -2,7 +2,7 @@
 <html lang="zh-CN">
 <head>
 <meta charset="utf-8" />
-<title>藏知设置</title>
+<title>ChekhovsGun 设置</title>
 <style>
   :root { color-scheme: light dark; }
   body { max-width: 560px; margin: 40px auto; padding: 0 20px;
@@ -28,7 +28,7 @@
 </style>
 </head>
 <body>
-  <h1>藏知设置</h1>
+  <h1>ChekhovsGun 设置</h1>
   <p class="sub">收藏、索引和检索全部在这个浏览器里完成，不会把收藏和浏览记录发到任何别的地方。</p>
 
   <fieldset>
@@ -42,7 +42,7 @@
 
   <fieldset>
     <legend>本地 Python 服务（可选）</legend>
-    <div class="check"><input type="checkbox" id="useBackend" /><label for="useBackend">同时使用本机的藏知服务</label></div>
+    <div class="check"><input type="checkbox" id="useBackend" /><label for="useBackend">同时使用本机的 ChekhovsGun 服务</label></div>
     <p class="hint">不开也完全能用。开了之后可以额外获得 Whisper 本地转写、
        YouTube / B 站收藏夹批量同步——这些是浏览器做不到的。两边的检索结果会合并去重。</p>
     <label for="serverUrl">服务地址</label>
@@ -52,15 +52,15 @@
 
   <fieldset>
     <legend>收藏采集</legend>
-    <div class="check"><input type="checkbox" id="captureOnSave" /><label for="captureOnSave">点网站自己的「收藏」按钮时，自动收进藏知</label></div>
+    <div class="check"><input type="checkbox" id="captureOnSave" /><label for="captureOnSave">点网站自己的「收藏」按钮时，自动收进 ChekhovsGun</label></div>
     <p class="hint">这是「只需要收藏」的关键。关掉之后仍可以点扩展图标手动收。
-       部分网站用同一个按钮收藏和取消收藏，无法判断状态时会按「收藏」处理，多收的条目可以在藏知里删除。</p>
+       部分网站用同一个按钮收藏和取消收藏，无法判断状态时会按「收藏」处理，多收的条目可以在 ChekhovsGun 里删除。</p>
   </fieldset>
 
   <fieldset>
     <legend>在哪些网站上启用</legend>
     <div id="sites"></div>
-    <p class="hint">关掉某个网站后，藏知在那里既不提醒也不采集。</p>
+    <p class="hint">关掉某个网站后，ChekhovsGun 在那里既不提醒也不采集。</p>
   </fieldset>
 
   <fieldset>

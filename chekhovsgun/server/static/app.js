@@ -1,4 +1,4 @@
-/* 藏知 dashboard. Vanilla JS, no build step, no external requests. */
+/* ChekhovsGun dashboard. Vanilla JS, no build step, no external requests. */
 (() => {
   "use strict";
 
@@ -184,7 +184,7 @@
   const CAPTURE_CARD = `
     <div class="card">
       <h3><span class="dot web"></span>浏览器采集<span class="badge ok">随时可用</span></h3>
-      <p>在知乎、小红书、公众号、B站…点网站自己的「收藏」，藏知就收进来。
+      <p>在知乎、小红书、公众号、B站…点网站自己的「收藏」，ChekhovsGun 就收进来。
          收藏夹页面上还会出现「整个收进来」。</p>
       <div class="actions">
         <button class="btn tiny" id="hydrate">补齐正文</button>

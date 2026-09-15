@@ -22,7 +22,7 @@ def test_healthz(client):
 def test_dashboard_is_served(client):
     response = client.get("/")
     assert response.status_code == 200
-    assert "藏知" in response.text
+    assert "ChekhovsGun" in response.text
     assert client.get("/app.js").status_code == 200
     assert client.get("/app.css").status_code == 200
 

@@ -88,19 +88,19 @@
     button.textContent = "正在收…";
     const current = peek || (await readActivePage());
     if (!current?.page?.url) {
-      button.textContent = "收进藏知";
+      button.textContent = "收进 ChekhovsGun";
       button.disabled = false;
       note("读不到这个页面的内容（浏览器内置页面不支持）", "bad");
       return;
     }
     const saved = await send({ type: "capture", payload: { ...current.page, origin: "toolbar" } });
     if (saved.ok === false) {
-      button.textContent = "收进藏知";
+      button.textContent = "收进 ChekhovsGun";
       button.disabled = false;
       note(saved.error || "没能收进来，再试一次", "bad");
       return;
     }
-    button.textContent = saved.state === "skipped" ? "已经收过了 ✓" : "已收进藏知 ✓";
+    button.textContent = saved.state === "skipped" ? "已经收过了 ✓" : "已收进 ChekhovsGun ✓";
     refresh();
   });
 
