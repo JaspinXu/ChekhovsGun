@@ -29,13 +29,25 @@
 </head>
 <body>
   <h1>藏知设置</h1>
-  <p class="sub">扩展只会访问你本机上的藏知服务，不会把收藏和浏览记录发到任何别的地方。</p>
+  <p class="sub">收藏、索引和检索全部在这个浏览器里完成，不会把收藏和浏览记录发到任何别的地方。</p>
 
   <fieldset>
-    <legend>本地服务</legend>
+    <legend>语义模型</legend>
+    <div class="check"><input type="checkbox" id="useModel" /><label for="useModel">用本地语义模型提升检索质量</label></div>
+    <p class="hint" id="modelState">正在检查…</p>
+    <p class="hint">模型跑在你自己的机器上，不联网。没装模型时扩展照常工作，
+       只是退化成关键词检索，中文问题就不容易命中英文收藏了。
+       安装方式见 <code>npm run fetch-model</code>。</p>
+  </fieldset>
+
+  <fieldset>
+    <legend>本地 Python 服务（可选）</legend>
+    <div class="check"><input type="checkbox" id="useBackend" /><label for="useBackend">同时使用本机的藏知服务</label></div>
+    <p class="hint">不开也完全能用。开了之后可以额外获得 Whisper 本地转写、
+       YouTube / B 站收藏夹批量同步——这些是浏览器做不到的。两边的检索结果会合并去重。</p>
     <label for="serverUrl">服务地址</label>
     <input type="text" id="serverUrl" placeholder="http://127.0.0.1:8700" />
-    <p class="hint">默认由 <code>chekhovsgun serve</code> 启动在 8700 端口。</p>
+    <p class="hint" id="backendState">默认由 <code>chekhovsgun serve</code> 启动在 8700 端口。</p>
   </fieldset>
 
   <fieldset>
@@ -54,7 +66,6 @@
   <fieldset>
     <legend>提醒行为</legend>
     <div class="check"><input type="checkbox" id="enabled" /><label for="enabled">启用提醒</label></div>
-    <div class="check"><input type="checkbox" id="explain" /><label for="explain">生成解读（未配置 LLM 时自动降级为原文摘录）</label></div>
     <div class="check"><input type="checkbox" id="autoCollapse" /><label for="autoCollapse">默认折叠卡片</label></div>
 
     <label for="cooldownMinutes">同一个视频的冷却时间（分钟）</label>

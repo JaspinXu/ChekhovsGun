@@ -1,0 +1,26 @@
+[
+ {
+  "text": "short",
+  "fragment": ""
+ },
+ {
+  "text": "a genuinely long passage of body text that should highlight from start to end here",
+  "fragment": ":~:text=a%20genuinely%20long%20passage%20of%20body%20text%20that"
+ },
+ {
+  "text": "带连字符-的中文句子应该也能正确转义处理",
+  "fragment": ":~:text=%E5%B8%A6%E8%BF%9E%E5%AD%97%E7%AC%A6%2D%E7%9A%84%E4%B8%AD%E6%96%87%E5%8F%A5%E5%AD%90%E5%BA%94%E8%AF%A5%E4%B9%9F%E8%83%BD%E6%AD%A3%E7%A1%AE%E8%BD%AC%E4%B9%89%E5%A4%84%E7%90%86"
+ },
+ {
+  "text": "exactly forty eight characters long text here ok",
+  "fragment": ":~:text=exactly%20forty%20eight%20characters%20long%20text%20here%20ok"
+ },
+ {
+  "text": "a,b&c-d with syntax characters",
+  "fragment": ":~:text=a%2Cb%26c%2Dd%20with%20syntax%20characters"
+ },
+ {
+  "text": "混合 mixed 中英文 passage with enough length to trigger the two-ended form of the fragment",
+  "fragment": ":~:text=%E6%B7%B7%E5%90%88%20mixed%20%E4%B8%AD%E8%8B%B1%E6%96%87%20passage%20with%20enough%20length%20to"
+ }
+]

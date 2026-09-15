@@ -5,6 +5,10 @@
  * broken install, which is "your library is still too small for the reminder to
  * be trustworthy, so it is deliberately staying quiet".
  *
+ * Everything here reads the in-browser library. There is no server to connect
+ * to, so there is no "connecting…" state and no failure mode where the popup
+ * has nothing to say.
+ *
  * Saving works on sites with no content script too: `activeTab` lets us inject
  * the reader for the duration of this click and nothing more, so the extension
  * never holds standing permission to read every page you visit.
@@ -33,6 +37,8 @@
   const settings = await send({ type: "settings" });
   $("enabled").checked = settings.enabled !== false;
   $("captureOnSave").checked = settings.captureOnSave !== false;
+  // Only meaningful when the optional Python backend is switched on.
+  $("dashboard").hidden = !settings.useBackend;
   $("dashboard").href = settings.serverUrl || "http://127.0.0.1:8700";
 
   $("enabled").addEventListener("change", () =>
@@ -91,7 +97,7 @@
     if (saved.ok === false) {
       button.textContent = "收进藏知";
       button.disabled = false;
-      note(saved.error || "本地服务没启动？", "bad");
+      note(saved.error || "没能收进来，再试一次", "bad");
       return;
     }
     button.textContent = saved.state === "skipped" ? "已经收过了 ✓" : "已收进藏知 ✓";
@@ -102,28 +108,39 @@
   async function refresh() {
     const result = await send({ type: "status" });
     if (!result.ok) {
-      note(`连不上本地服务。先运行 chekhovsgun serve（${settings.serverUrl}）`, "bad");
+      note(result.error || "本地索引打不开了，试试重新加载扩展", "bad");
       return;
     }
-    const stats = result.status.stats;
-    const needed = result.status.popup_threshold || 0;
+    const stats = result.status;
     $("progress").hidden = false;
     $("items").textContent = stats.items;
-    $("digested").textContent = stats.items_digested ?? 0;
-    $("bar").style.width = `${Math.round((stats.coverage || 0) * 100)}%`;
-    $("pending").textContent = stats.pending_body ? `${stats.pending_body} 条待取正文` : "";
+    $("digested").textContent = stats.digested ?? 0;
+    $("bar").style.width = `${stats.items ? Math.round(((stats.digested || 0) / stats.items) * 100) : 0}%`;
+    $("pending").textContent = stats.chunks ? `${stats.chunks} 个片段` : "";
 
-    if (needed && stats.items < needed) {
+    if (!stats.ready) {
       // Without this the extension looks broken: it is working exactly as
       // designed, and saying nothing at all.
+      const left = Math.max(0, (stats.minLibraryItems || 0) - stats.items);
       note(
-        `再收 ${needed - stats.items} 条就会开始提醒你。` +
-          `收藏太少时判断不准，宁可先不打扰你 —— 搜索随时可用。`,
+        `再收 ${left} 条就会开始提醒你。收藏太少时判断不准，宁可先不打扰你 —— 搜索随时可用。`,
         "warm"
       );
       return;
     }
-    note(`已连接 · ${stats.items} 条收藏，${stats.chunks} 个可检索片段`);
+
+    // The encoder is the one piece that can be "working, but not at full
+    // strength", and that is worth saying out loud rather than leaving the user
+    // to wonder why results feel shallow.
+    const parts = [`${stats.items} 条收藏 · ${stats.chunks} 个可检索片段`];
+    if (stats.model) {
+      const pct = Math.round((stats.vectorCoverage || 0) * 100);
+      parts.push(pct >= 100 ? "语义模型已就绪" : `语义模型建索引中 ${pct}%`);
+    } else {
+      parts.push("关键词检索中（语义模型未装）");
+    }
+    if (stats.backend) parts.push("已接上本地服务");
+    note(parts.join(" · "));
   }
 
   refresh();

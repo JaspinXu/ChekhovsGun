@@ -13,11 +13,12 @@
   const DEFAULTS = {
     enabled: true,
     serverUrl: "http://127.0.0.1:8700",
+    useBackend: false,
+    useModel: true,
     sites: DEFAULT_SITES,
     captureOnSave: true,
     cooldownMinutes: 45,
     maxItems: 3,
-    explain: true,
     autoCollapse: false,
   };
   const LABELS = {
@@ -27,16 +28,22 @@
     stackoverflow: "Stack Overflow", medium: "Medium",
   };
 
+  const LOOPBACK = { origins: ["http://127.0.0.1/*", "http://localhost/*"] };
+
+  const send = (message) =>
+    new Promise((resolve) => chrome.runtime.sendMessage(message, (r) => resolve(r || {})));
+
   const stored = { ...DEFAULTS, ...(await chrome.storage.sync.get(DEFAULTS)) };
   const sites = { ...DEFAULT_SITES, ...(stored.sites || {}) };
 
   $("serverUrl").value = stored.serverUrl;
   $("enabled").checked = stored.enabled;
   $("captureOnSave").checked = stored.captureOnSave !== false;
-  $("explain").checked = stored.explain;
   $("autoCollapse").checked = stored.autoCollapse;
   $("cooldownMinutes").value = stored.cooldownMinutes;
   $("maxItems").value = stored.maxItems;
+  $("useModel").checked = stored.useModel !== false;
+  $("useBackend").checked = stored.useBackend === true;
 
   $("sites").innerHTML = Object.keys(LABELS)
     .map(
@@ -49,6 +56,50 @@
     )
     .join("");
 
+  /**
+   * Reaching a local server needs a host permission the extension does not ask
+   * for at install time — a standalone install should not request network
+   * access it never uses. Chrome only grants it from a user gesture, which is
+   * why this hangs off the checkbox rather than off the save button.
+   */
+  $("useBackend").addEventListener("change", async () => {
+    if (!$("useBackend").checked) return;
+    const granted = await chrome.permissions.request(LOOPBACK).catch(() => false);
+    if (!granted) {
+      $("useBackend").checked = false;
+      $("backendState").textContent = "没有授权访问本机地址，已保持关闭。";
+      return;
+    }
+    $("backendState").textContent = "已授权，保存后生效。";
+  });
+
+  async function refreshState() {
+    const result = await send({ type: "status" });
+    if (!result.ok) {
+      $("modelState").textContent = "读不到本地索引状态。";
+      return;
+    }
+    const status = result.status;
+
+    if (status.model) {
+      const pct = Math.round((status.vectorCoverage || 0) * 100);
+      $("modelState").textContent =
+        pct >= 100
+          ? `已就绪：${status.model}`
+          : `已加载 ${status.model}，正在重建索引 ${pct}%。未建好的部分仍可用关键词检索到。`;
+    } else if (status.modelError) {
+      $("modelState").textContent = `模型没能加载：${status.modelError}。当前使用关键词检索。`;
+    } else {
+      $("modelState").textContent = "没有检测到模型，当前使用关键词检索（扩展照常可用）。";
+    }
+
+    if ($("useBackend").checked) {
+      $("backendState").textContent = status.backend
+        ? "已连上本机服务。"
+        : `连不上：${status.backendError || "服务没在运行"}。不影响扩展本身。`;
+    }
+  }
+
   $("save").addEventListener("click", async () => {
     const chosen = {};
     document.querySelectorAll("[data-site]").forEach((input) => {
@@ -58,13 +109,17 @@
       serverUrl: ($("serverUrl").value.trim() || DEFAULTS.serverUrl).replace(/\/+$/, ""),
       enabled: $("enabled").checked,
       captureOnSave: $("captureOnSave").checked,
-      explain: $("explain").checked,
       autoCollapse: $("autoCollapse").checked,
+      useModel: $("useModel").checked,
+      useBackend: $("useBackend").checked,
       cooldownMinutes: Math.max(0, Number($("cooldownMinutes").value) || DEFAULTS.cooldownMinutes),
       maxItems: Math.min(10, Math.max(1, Number($("maxItems").value) || DEFAULTS.maxItems)),
       sites: chosen,
     });
     $("saved").classList.add("show");
     setTimeout(() => $("saved").classList.remove("show"), 1600);
+    refreshState();
   });
+
+  refreshState();
 })();
