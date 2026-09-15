@@ -1,0 +1,257 @@
+{
+ "confidence": [
+  {
+   "dense": 0.0,
+   "coverage": 0.0,
+   "confidence": 0.0
+  },
+  {
+   "dense": 0.0,
+   "coverage": 0.2,
+   "confidence": 0.06050000000000001
+  },
+  {
+   "dense": 0.0,
+   "coverage": 0.4,
+   "confidence": 0.12100000000000002
+  },
+  {
+   "dense": 0.0,
+   "coverage": 0.6,
+   "confidence": 0.18150000000000002
+  },
+  {
+   "dense": 0.0,
+   "coverage": 0.85,
+   "confidence": 0.25712500000000005
+  },
+  {
+   "dense": 0.0,
+   "coverage": 1.0,
+   "confidence": 0.30250000000000005
+  },
+  {
+   "dense": 0.1,
+   "coverage": 0.0,
+   "confidence": 0.024750000000000005
+  },
+  {
+   "dense": 0.1,
+   "coverage": 0.2,
+   "confidence": 0.14888961030678932
+  },
+  {
+   "dense": 0.1,
+   "coverage": 0.4,
+   "confidence": 0.23575000000000002
+  },
+  {
+   "dense": 0.1,
+   "coverage": 0.6,
+   "confidence": 0.316477038425243
+  },
+  {
+   "dense": 0.1,
+   "coverage": 0.85,
+   "confidence": 0.41307141763401933
+  },
+  {
+   "dense": 0.1,
+   "coverage": 1.0,
+   "confidence": 0.4695524947075772
+  },
+  {
+   "dense": 0.35,
+   "coverage": 0.0,
+   "confidence": 0.08662500000000001
+  },
+  {
+   "dense": 0.35,
+   "coverage": 0.2,
+   "confidence": 0.2661838089979066
+  },
+  {
+   "dense": 0.35,
+   "coverage": 0.4,
+   "confidence": 0.37599958240482745
+  },
+  {
+   "dense": 0.35,
+   "coverage": 0.6,
+   "confidence": 0.47434090627301284
+  },
+  {
+   "dense": 0.35,
+   "coverage": 0.85,
+   "confidence": 0.5891960225793036
+  },
+  {
+   "dense": 0.35,
+   "coverage": 1.0,
+   "confidence": 0.6553485902394828
+  },
+  {
+   "dense": 0.5,
+   "coverage": 0.0,
+   "confidence": 0.12375000000000001
+  },
+  {
+   "dense": 0.5,
+   "coverage": 0.2,
+   "confidence": 0.3265524947075771
+  },
+  {
+   "dense": 0.5,
+   "coverage": 0.4,
+   "confidence": 0.4459961179749811
+  },
+  {
+   "dense": 0.5,
+   "coverage": 0.6,
+   "confidence": 0.5517251508773249
+  },
+  {
+   "dense": 0.5,
+   "coverage": 0.85,
+   "confidence": 0.6742391082341193
+  },
+  {
+   "dense": 0.5,
+   "coverage": 1.0,
+   "confidence": 0.7444480515339464
+  },
+  {
+   "dense": 0.75,
+   "coverage": 0.0,
+   "confidence": 0.18562500000000004
+  },
+  {
+   "dense": 0.75,
+   "coverage": 0.2,
+   "confidence": 0.4204092505793338
+  },
+  {
+   "dense": 0.75,
+   "coverage": 0.4,
+   "confidence": 0.5531001508773249
+  },
+  {
+   "dense": 0.75,
+   "coverage": 0.6,
+   "confidence": 0.6689941769624717
+  },
+  {
+   "dense": 0.75,
+   "coverage": 0.85,
+   "confidence": 0.8020461870101045
+  },
+  {
+   "dense": 0.75,
+   "coverage": 1.0,
+   "confidence": 0.8778364317029974
+  },
+  {
+   "dense": 0.9,
+   "coverage": 0.0,
+   "confidence": 0.22275000000000003
+  },
+  {
+   "dense": 0.9,
+   "coverage": 0.2,
+   "confidence": 0.4741688309203679
+  },
+  {
+   "dense": 0.9,
+   "coverage": 0.4,
+   "confidence": 0.61375
+  },
+  {
+   "dense": 0.9,
+   "coverage": 0.6,
+   "confidence": 0.7349311152757292
+  },
+  {
+   "dense": 0.9,
+   "coverage": 0.85,
+   "confidence": 0.8734642529020579
+  },
+  {
+   "dense": 0.9,
+   "coverage": 1.0,
+   "confidence": 0.9521574841227314
+  },
+  {
+   "dense": 1.0,
+   "coverage": 0.0,
+   "confidence": 0.24750000000000003
+  },
+  {
+   "dense": 1.0,
+   "coverage": 0.2,
+   "confidence": 0.5092461179749811
+  },
+  {
+   "dense": 1.0,
+   "coverage": 0.4,
+   "confidence": 0.6531049894151542
+  },
+  {
+   "dense": 1.0,
+   "coverage": 0.6,
+   "confidence": 0.7775685011586676
+  },
+  {
+   "dense": 1.0,
+   "coverage": 0.85,
+   "confidence": 0.9195045005781799
+  },
+  {
+   "dense": 1.0,
+   "coverage": 1.0,
+   "confidence": 1.0
+  }
+ ],
+ "coverage": [
+  {
+   "weights": {
+    "vector": 2.1,
+    "search": 1.4,
+    "embedding": 2.8
+   },
+   "text": "a talk about vector search and embedding models",
+   "coverage": 0.7894736842105263
+  },
+  {
+   "weights": {
+    "vector": 2.1,
+    "search": 1.4,
+    "embedding": 2.8
+   },
+   "text": "completely unrelated text about cooking",
+   "coverage": 0.0
+  },
+  {
+   "weights": {
+    "做法": 1.2,
+    "红烧": 3.0
+   },
+   "text": "红烧肉的做法要先焯水",
+   "coverage": 0.39682539682539686
+  },
+  {
+   "weights": {
+    "做法": 1.2,
+    "红烧": 3.0
+   },
+   "text": "redis persistence and durability",
+   "coverage": 0.0
+  },
+  {
+   "weights": {
+    "react": 3.2
+   },
+   "text": "making my react app faster with memoization",
+   "coverage": 0.5555555555555556
+  }
+ ]
+}

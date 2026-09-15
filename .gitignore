@@ -15,3 +15,8 @@ htmlcov/
 .DS_Store
 .idea/
 .vscode/
+
+# Extension build artefacts and the fetched encoder (too large for git)
+node_modules/
+extension/models/
+dist/

@@ -1,0 +1,16 @@
+{
+  "name": "chekhovsgun-extension",
+  "version": "0.2.0",
+  "private": true,
+  "description": "Browser-native ChekhovsGun: the retrieval core and the extension that runs it.",
+  "type": "module",
+  "scripts": {
+    "test": "node --test extension/test/*.test.js",
+    "fetch-model": "node scripts/fetch-model.mjs",
+    "build": "node scripts/build-extension.mjs",
+    "fixtures": "python scripts/gen_fixtures.py"
+  },
+  "devDependencies": {
+    "fake-indexeddb": "^6.0.0"
+  }
+}

@@ -1,0 +1,470 @@
+{
+ "tokenize": [
+  {
+   "text": "How Vector Databases Actually Work",
+   "normalize": "how vector databases actually work",
+   "tokens": [
+    "vector",
+    "databases",
+    "actually",
+    "work"
+   ],
+   "tokens_keep": [
+    "how",
+    "vector",
+    "databases",
+    "actually",
+    "work"
+   ],
+   "script": "latin"
+  },
+  {
+   "text": "红烧肉的做法，这个视频讲解得很详细",
+   "normalize": "红烧肉的做法,这个视频讲解得很详细",
+   "tokens": [
+    "红",
+    "烧",
+    "肉",
+    "法",
+    "红烧",
+    "烧肉",
+    "肉的",
+    "视",
+    "频",
+    "讲",
+    "解",
+    "详",
+    "细",
+    "个视",
+    "视频",
+    "频讲",
+    "解得",
+    "很详",
+    "详细"
+   ],
+   "tokens_keep": [
+    "红",
+    "烧",
+    "肉",
+    "的",
+    "做",
+    "法",
+    "红烧",
+    "烧肉",
+    "肉的",
+    "的做",
+    "做法",
+    "这",
+    "个",
+    "视",
+    "频",
+    "讲",
+    "解",
+    "得",
+    "很",
+    "详",
+    "细",
+    "这个",
+    "个视",
+    "视频",
+    "频讲",
+    "讲解",
+    "解得",
+    "得很",
+    "很详",
+    "详细"
+   ],
+   "script": "cjk"
+  },
+  {
+   "text": "self-attention is all you need",
+   "normalize": "self-attention is all you need",
+   "tokens": [
+    "self-attention",
+    "self",
+    "attention",
+    "selfattention",
+    "need"
+   ],
+   "tokens_keep": [
+    "self-attention",
+    "self",
+    "attention",
+    "selfattention",
+    "is",
+    "all",
+    "you",
+    "need"
+   ],
+   "script": "latin"
+  },
+  {
+   "text": "B-Tree vs LSM-Tree 的区别",
+   "normalize": "b-tree vs lsm-tree 的区别",
+   "tokens": [
+    "b-tree",
+    "tree",
+    "btree",
+    "vs",
+    "lsm-tree",
+    "lsm",
+    "tree",
+    "lsmtree",
+    "区",
+    "别",
+    "的区"
+   ],
+   "tokens_keep": [
+    "b-tree",
+    "tree",
+    "btree",
+    "vs",
+    "lsm-tree",
+    "lsm",
+    "tree",
+    "lsmtree",
+    "的",
+    "区",
+    "别",
+    "的区",
+    "区别"
+   ],
+   "script": "latin"
+  },
+  {
+   "text": "Redis 持久化原理详解",
+   "normalize": "redis 持久化原理详解",
+   "tokens": [
+    "redis",
+    "持",
+    "久",
+    "化",
+    "原",
+    "理",
+    "详",
+    "解",
+    "持久",
+    "久化",
+    "化原",
+    "理详"
+   ],
+   "tokens_keep": [
+    "redis",
+    "持",
+    "久",
+    "化",
+    "原",
+    "理",
+    "详",
+    "解",
+    "持久",
+    "久化",
+    "化原",
+    "原理",
+    "理详",
+    "详解"
+   ],
+   "script": "mixed"
+  },
+  {
+   "text": "KV cache 是什么？为什么能加速 LLM 推理",
+   "normalize": "kv cache 是什么?为什么能加速 llm 推理",
+   "tokens": [
+    "kv",
+    "cache",
+    "加",
+    "速",
+    "能加",
+    "加速",
+    "llm",
+    "推",
+    "理",
+    "推理"
+   ],
+   "tokens_keep": [
+    "kv",
+    "cache",
+    "是",
+    "什",
+    "么",
+    "是什",
+    "什么",
+    "为",
+    "什",
+    "么",
+    "能",
+    "加",
+    "速",
+    "为什",
+    "什么",
+    "么能",
+    "能加",
+    "加速",
+    "llm",
+    "推",
+    "理",
+    "推理"
+   ],
+   "script": "mixed"
+  },
+  {
+   "text": "  Ｆｕｌｌ－ＷｉｄＴＨ  ＴｅＸＴ ",
+   "normalize": "full-width text",
+   "tokens": [
+    "full-width",
+    "full",
+    "width",
+    "fullwidth",
+    "text"
+   ],
+   "tokens_keep": [
+    "full-width",
+    "full",
+    "width",
+    "fullwidth",
+    "text"
+   ],
+   "script": "mixed"
+  },
+  {
+   "text": "chunking and hybrid search explained",
+   "normalize": "chunking and hybrid search explained",
+   "tokens": [
+    "chunking",
+    "hybrid",
+    "search",
+    "explained"
+   ],
+   "tokens_keep": [
+    "chunking",
+    "and",
+    "hybrid",
+    "search",
+    "explained"
+   ],
+   "script": "latin"
+  },
+  {
+   "text": "我们来聊聊 RAG 的检索质量问题",
+   "normalize": "我们来聊聊 rag 的检索质量问题",
+   "tokens": [
+    "聊",
+    "聊",
+    "来聊",
+    "聊聊",
+    "rag",
+    "检",
+    "索",
+    "质",
+    "量",
+    "问",
+    "题",
+    "的检",
+    "检索",
+    "索质",
+    "质量",
+    "量问"
+   ],
+   "tokens_keep": [
+    "我",
+    "们",
+    "来",
+    "聊",
+    "聊",
+    "我们",
+    "们来",
+    "来聊",
+    "聊聊",
+    "rag",
+    "的",
+    "检",
+    "索",
+    "质",
+    "量",
+    "问",
+    "题",
+    "的检",
+    "检索",
+    "索质",
+    "质量",
+    "量问",
+    "问题"
+   ],
+   "script": "cjk"
+  },
+  {
+   "text": "GPT-4o mini 1.5x faster",
+   "normalize": "gpt-4o mini 1.5x faster",
+   "tokens": [
+    "gpt-4o",
+    "gpt",
+    "4o",
+    "gpt4o",
+    "mini",
+    "1.5x",
+    "5x",
+    "15x",
+    "faster"
+   ],
+   "tokens_keep": [
+    "gpt-4o",
+    "gpt",
+    "4o",
+    "gpt4o",
+    "mini",
+    "1.5x",
+    "5x",
+    "15x",
+    "faster"
+   ],
+   "script": "latin"
+  },
+  {
+   "text": "",
+   "normalize": "",
+   "tokens": [],
+   "tokens_keep": [],
+   "script": "mixed"
+  },
+  {
+   "text": "a the of and",
+   "normalize": "a the of and",
+   "tokens": [],
+   "tokens_keep": [
+    "a",
+    "the",
+    "of",
+    "and"
+   ],
+   "script": "latin"
+  },
+  {
+   "text": "这个那个还是就是",
+   "normalize": "这个那个还是就是",
+   "tokens": [],
+   "tokens_keep": [
+    "这",
+    "个",
+    "那",
+    "个",
+    "还",
+    "是",
+    "就",
+    "是",
+    "这个",
+    "个那",
+    "那个",
+    "个还",
+    "还是",
+    "是就",
+    "就是"
+   ],
+   "script": "cjk"
+  },
+  {
+   "text": "エンベディング と 検索",
+   "normalize": "エンベディング と 検索",
+   "tokens": [
+    "エ",
+    "ン",
+    "ベ",
+    "デ",
+    "ィ",
+    "ン",
+    "グ",
+    "エン",
+    "ンベ",
+    "ベデ",
+    "ディ",
+    "ィン",
+    "ング",
+    "と",
+    "検",
+    "索",
+    "検索"
+   ],
+   "tokens_keep": [
+    "エ",
+    "ン",
+    "ベ",
+    "デ",
+    "ィ",
+    "ン",
+    "グ",
+    "エン",
+    "ンベ",
+    "ベデ",
+    "ディ",
+    "ィン",
+    "ング",
+    "と",
+    "検",
+    "索",
+    "検索"
+   ],
+   "script": "cjk"
+  },
+  {
+   "text": "한국어 텍스트",
+   "normalize": "한국어 텍스트",
+   "tokens": [
+    "한",
+    "국",
+    "어",
+    "한국",
+    "국어",
+    "텍",
+    "스",
+    "트",
+    "텍스",
+    "스트"
+   ],
+   "tokens_keep": [
+    "한",
+    "국",
+    "어",
+    "한국",
+    "국어",
+    "텍",
+    "스",
+    "트",
+    "텍스",
+    "스트"
+   ],
+   "script": "cjk"
+  }
+ ],
+ "sentences": [
+  {
+   "text": "第一句。第二句！第三句？",
+   "sentences": [
+    "第一句。",
+    "第二句！",
+    "第三句？"
+   ]
+  },
+  {
+   "text": "One. Two. Three.",
+   "sentences": [
+    "One.",
+    "Two.",
+    "Three."
+   ]
+  },
+  {
+   "text": "a\nb\nc",
+   "sentences": [
+    "a",
+    "b",
+    "c"
+   ]
+  },
+  {
+   "text": "混合 sentence. 中文句子。",
+   "sentences": [
+    "混合 sentence.",
+    "中文句子。"
+   ]
+  }
+ ]
+}

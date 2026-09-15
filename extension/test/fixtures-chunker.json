@@ -1,0 +1,129 @@
+{
+ "segments": [
+  {
+   "text": "sentence number 0 about vector search and embeddings. sentence number 1 about vector search and embeddings. sentence number 2 about vector search and embeddings. sentence number 3 about vector search and embeddings. sentence number 4 about vector search and embeddings. sentence number 5 about vector search and embeddings. sentence number 6 about vector search and embeddings.",
+   "start": 0.0,
+   "end": 21.0,
+   "kind": "transcript",
+   "ordinal": 0,
+   "id": "817887ad9ef6231d9209"
+  },
+  {
+   "text": "sentence number 5 about vector search and embeddings. sentence number 6 about vector search and embeddings. sentence number 7 about vector search and embeddings. sentence number 8 about vector search and embeddings. sentence number 9 about vector search and embeddings. sentence number 10 about vector search and embeddings. sentence number 11 about vector search and embeddings.",
+   "start": 15.0,
+   "end": 36.0,
+   "kind": "transcript",
+   "ordinal": 1,
+   "id": "1e723cab3f05d8525503"
+  },
+  {
+   "text": "sentence number 10 about vector search and embeddings. sentence number 11 about vector search and embeddings. sentence number 12 about vector search and embeddings. sentence number 13 about vector search and embeddings. sentence number 14 about vector search and embeddings. sentence number 15 about vector search and embeddings. sentence number 16 about vector search and embeddings.",
+   "start": 30.0,
+   "end": 51.0,
+   "kind": "transcript",
+   "ordinal": 2,
+   "id": "768c5dd031f42b48709f"
+  },
+  {
+   "text": "sentence number 15 about vector search and embeddings. sentence number 16 about vector search and embeddings. sentence number 17 about vector search and embeddings. sentence number 18 about vector search and embeddings. sentence number 19 about vector search and embeddings. sentence number 20 about vector search and embeddings. sentence number 21 about vector search and embeddings.",
+   "start": 45.0,
+   "end": 66.0,
+   "kind": "transcript",
+   "ordinal": 3,
+   "id": "49bef959b8d92f52caa2"
+  },
+  {
+   "text": "sentence number 20 about vector search and embeddings. sentence number 21 about vector search and embeddings. sentence number 22 about vector search and embeddings. sentence number 23 about vector search and embeddings. sentence number 24 about vector search and embeddings. sentence number 25 about vector search and embeddings. sentence number 26 about vector search and embeddings.",
+   "start": 60.0,
+   "end": 81.0,
+   "kind": "transcript",
+   "ordinal": 4,
+   "id": "99fcafa5f4f0d1d08150"
+  },
+  {
+   "text": "sentence number 25 about vector search and embeddings. sentence number 26 about vector search and embeddings. sentence number 27 about vector search and embeddings. sentence number 28 about vector search and embeddings. sentence number 29 about vector search and embeddings.",
+   "start": 75.0,
+   "end": 90.0,
+   "kind": "transcript",
+   "ordinal": 5,
+   "id": "0247a176f2101c3cfd33"
+  }
+ ],
+ "segments_slow": [
+  {
+   "text": "uh uh uh uh",
+   "start": 0.0,
+   "end": 80.0,
+   "ordinal": 0,
+   "id": "463e0cd9c5378ceee6fa"
+  },
+  {
+   "text": "uh uh uh uh",
+   "start": 80.0,
+   "end": 160.0,
+   "ordinal": 1,
+   "id": "7b25928b2f310a855576"
+  },
+  {
+   "text": "uh uh uh uh",
+   "start": 160.0,
+   "end": 240.0,
+   "ordinal": 2,
+   "id": "30fb642142f36d3004a9"
+  }
+ ],
+ "text": [
+  {
+   "text": "第一句话讲的是向量检索。 第二句话讲的是倒排索引。 Third sentence is in English. 第一句话讲的是向量检索。 第二句话讲的是倒排索引。 Third sentence is in English. 第一句话讲的是向量检索。 第二句话讲的是倒排索引。 Third sentence is in English. 第一句话讲的是向量检索。 第二句话讲的是倒排索引。 Third sentence is in English. 第一句话讲的是向量检索。 第二句话讲的是倒排索引。 Third sentence is in English. 第一句话讲的是向量检索。 第二句话讲的是倒排索引。 Third sentence is in English.",
+   "ordinal": 0,
+   "kind": "description",
+   "id": "52cc61a1cba237b0c90c"
+  }
+ ],
+ "item": [
+  {
+   "text": "怎么做红烧肉 · 张三 · 烹饪 家常菜 · 收藏夹",
+   "ordinal": 0,
+   "kind": "title",
+   "id": "1505679ad6e50306fe4f",
+   "start": 0.0,
+   "end": 0.0
+  },
+  {
+   "text": "第0段正文，讲的是火候和糖色的控制方法。 第1段正文，讲的是火候和糖色的控制方法。 第2段正文，讲的是火候和糖色的控制方法。 第3段正文，讲的是火候和糖色的控制方法。 第4段正文，讲的是火候和糖色的控制方法。 第5段正文，讲的是火候和糖色的控制方法。 第6段正文，讲的是火候和糖色的控制方法。 第7段正文，讲的是火候和糖色的控制方法。",
+   "ordinal": 1,
+   "kind": "body",
+   "id": "bf3565bc19ab2f4fa110",
+   "start": 0,
+   "end": 0
+  },
+  {
+   "text": "很有用的分享 ↳ 同感，我也试过了",
+   "ordinal": 2,
+   "kind": "comment",
+   "id": "eef1e9ebc4c9f7a2a17c",
+   "start": 0.0,
+   "end": 0.0
+  }
+ ],
+ "item_video": [
+  {
+   "text": "How Vector DBs Work · Deep Dive",
+   "ordinal": 0,
+   "kind": "title",
+   "id": "5b3e89a513314bc024eb"
+  },
+  {
+   "text": "A talk about ANN indexes and recall.",
+   "ordinal": 1,
+   "kind": "description",
+   "id": "81b3f15d73a01874f13c"
+  },
+  {
+   "text": "sentence number 0 about vector search and embeddings. sentence number 1 about vector search and embeddings. sentence number 2 about vector search and embeddings. sentence number 3 about vector search and embeddings. sentence number 4 about vector search and embeddings. sentence number 5 about vector search and embeddings.",
+   "ordinal": 2,
+   "kind": "transcript",
+   "id": "f636329d5fe4cadeab79"
+  }
+ ]
+}
