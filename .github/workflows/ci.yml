@@ -43,3 +43,42 @@ jobs:
           python -m chekhovsgun search "FlashAttention 复杂度"
           python -m chekhovsgun mark "https://www.bilibili.com/video/BV1xx411c7mD" --digested
           python -m chekhovsgun items --status digested
+
+  extension:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install
+        run: |
+          npm install
+          pip install -e .
+
+      - name: Test the in-browser engine
+        run: npm test
+
+      # The JavaScript engine is a port of the Python one, held to it by
+      # fixtures captured from the real Python functions. Regenerating them and
+      # finding a diff means the two have drifted apart — which would show up in
+      # production as quietly worse retrieval rather than as a failure.
+      - name: Check the port has not drifted from Python
+        run: |
+          python scripts/gen_fixtures.py
+          git diff --exit-code extension/test/
+
+      - name: Package
+        run: npm run build
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: extension
+          path: dist/*.zip

@@ -25,31 +25,37 @@ runs locally; your bookmarks and your browsing never leave this machine.
 ## How it works
 
 ```
-  Two ways in                  Index                    While you scroll
-┌───────────────┐            ┌──────────────┐         ┌──────────────┐
-│ API adapters  │  subtitles │ chunks + vec │         │  extension   │
-│ YouTube · B站 │───────────▶│  + BM25 idx  │◀────────│  reads the   │
-├───────────────┤            │    SQLite    │ hybrid  │ page you're  │
-│ the browser   │  page text │              │retrieval│     on       │
-│ 知乎·小红书·…  │───────────▶│              │         └──────┬───────┘
-└───────────────┘            └──────────────┘                │
-       ▲                            │                        │
-   you click                        └──── matching save ─────▶│  card pops
-   「收藏」                                + a short read      └──────────┘
+        you click 「收藏」
+               │
+               ▼
+     ┌───────────────────┐        ┌──────────────────────┐
+     │  extension reads  │ ─────▶ │  chunks + vectors    │
+     │  the page you're  │        │  + BM25 index        │
+     │  looking at       │        │  IndexedDB, local    │
+     └───────────────────┘        └──────────┬───────────┘
+                                             │ hybrid retrieval
+     ┌───────────────────┐                   │
+     │ optional backend  │ ─ ─ merged (RRF) ─┤
+     │ Whisper · YT/B站  │                   │
+     └───────────────────┘                   ▼
+                                   ┌──────────────────────┐
+     while you scroll ────────────▶│  card: you saved     │
+                                   │  this + a short read │
+                                   └──────────────────────┘
 ```
 
 1. **Take things in**, two ways that meet in the same place:
-   - **Adapters** pull saved videos from YouTube playlists / Liked / Watch Later and from
-     Bilibili favourite folders, with subtitles (both Bilibili's human CC tracks and its
-     AI-generated ones) and **top comments**. Videos with no subtitles fall back to local
-     Whisper transcription.
-   - **The browser extension** captures whatever you save on sites that have no usable
-     API — Zhihu, Xiaohongshu, WeChat articles, Weibo, Reddit. It reads the page your
-     already-logged-in browser can see, so there are no credentials to hand over. There
-     is also a one-click scan that walks an existing favourites folder and takes in the
-     backlog you already have.
+   - **The browser extension**, on its own, captures whatever you save on any site. It
+     reads the page your already-logged-in browser can see, so there are no credentials
+     to hand over. There is also a one-click scan that walks an existing favourites
+     folder and takes in the backlog you already have.
+   - **Adapters**, if you run the optional Python backend, pull saved videos from YouTube
+     playlists / Liked / Watch Later and from Bilibili favourite folders, with subtitles
+     (both Bilibili's human CC tracks and its AI-generated ones) and **top comments**.
+     Videos with no subtitles fall back to local Whisper transcription.
 2. **Index** — Cut the content into passages (timestamped for a video, paragraph-shaped
-   for a post), embed them, and build a BM25 inverted index alongside.
+   for a post), embed them, and build a BM25 inverted index alongside. In the extension
+   this lives in IndexedDB; in the backend, in SQLite.
 3. **Retrieve** — Hybrid retrieval fused with RRF, plus a separate **confidence** score
    that decides whether this is worth interrupting you at all.
 4. **Surface** — The extension recognizes the page you're on; on a hit it floats a card.
@@ -60,22 +66,87 @@ runs locally; your bookmarks and your browsing never leave this machine.
 
 ---
 
-## Run it in 30 seconds
+## Install it in 30 seconds
 
-No API keys needed. See what it looks like first:
+Nothing to install but the extension itself. No Python, no server, no API keys.
+
+1. Download the latest zip from [Releases](https://github.com/JaspinXu/ChekhovsGun/releases)
+   and unzip it — or clone this repo and use its `extension/` directory
+2. Open `chrome://extensions` in Chrome / Edge
+3. Turn on "Developer mode" in the top right
+4. Click "Load unpacked" and pick that directory
+
+That is the whole setup. Capture, indexing and retrieval all run inside the browser,
+against a local IndexedDB that never leaves your machine.
+
+### Then just use the web normally
+
+- **Click a site's own 收藏 / save / bookmark button** and the page comes in. Zhihu,
+  Xiaohongshu, WeChat articles, Weibo, Juejin, CSDN, Jianshu, Reddit, X, Stack Overflow
+  and Medium ship with recipes; YouTube and Bilibili work too.
+- **On a favourites page**, a button appears: *把这个收藏夹收进藏知*. It scrolls the whole
+  folder and collects every link — this is how you bring in the backlog you already have.
+- **Anywhere else**, click the extension icon and press *收进藏知*. That uses `activeTab`,
+  so the extension is granted access for that one click and holds no standing permission
+  to read your browsing.
+
+The card stays quiet until your library holds 15 saves. That is deliberate, not a bug —
+see [The popup waits until it can be trusted](#the-popup-waits-until-it-can-be-trusted).
+The popup tells you how many more you need, and explicit search works from save one.
+
+> Some sites use one button for both saving and un-saving. Where the control exposes its
+> state we read it; where it doesn't, a click is treated as a save.
+
+Adding a site is one entry in `extension/recipes.js`. A site with no recipe still works
+through the toolbar button: the generic reader picks out the element carrying the most
+text that isn't inside links, which is the article on nearly any page.
+
+---
+
+## Turn on semantic search
+
+Out of the box the extension retrieves with BM25 plus a hashed embedder — no download,
+works offline, good at exact terms. What it cannot do is match *across languages*: a
+Chinese question will not find the English talk that answers it.
+
+A ~120MB on-device encoder fixes that. It is not committed to the repo, so fetch it once:
 
 ```bash
-git clone https://github.com/JaspinXu/ChekhovsGun.git
-cd ChekhovsGun
-pip install -e .
+npm install          # dev dependency for the fetch script
+npm run fetch-model  # vendors transformers.js + downloads multilingual-e5-small (int8)
+```
 
+Reload the extension and it picks the encoder up on its next start, then re-indexes your
+library in the background. Nothing is unavailable while that runs — chunks that have not
+been re-embedded yet still answer through BM25, they just rank on keywords for a while.
+
+The model runs entirely on your machine. No query, no page and no saved text is ever sent
+anywhere.
+
+---
+
+## The optional Python backend
+
+The extension is complete on its own. The Python side adds the two things a browser
+genuinely cannot do:
+
+- **Whisper transcription** for videos with no subtitle track
+- **Bulk sync** of YouTube playlists / Liked / Watch Later and Bilibili favourite folders
+  through their APIs, with subtitles and top comments
+
+```bash
+pip install -e .
 chekhovsgun demo      # load sample saves and run one retrieval
 chekhovsgun tray      # background daemon + tray icon, opens the dashboard
 ```
 
-Don't want to install Python? [Releases](https://github.com/JaspinXu/ChekhovsGun/releases)
-has a packaged single-file build — just double-click it. `chekhovsgun serve` remains the
-equivalent foreground version.
+Then switch it on in the extension's options page, which is also where the loopback
+permission is requested — a standalone install never asks for network access it does not
+use.
+
+When both are running, each retrieves independently and only the ranked lists are merged
+(RRF, deduplicated on a canonicalised URL). The two never need to agree on a vector
+space, and a backend that is stopped, slow or broken simply contributes nothing.
 
 `demo` prints something like this:
 
@@ -94,45 +165,6 @@ pretending you just scrolled onto:
      https://www.youtube.com/watch?v=Xpzbywj7HbQ&t=1000s
      [16:40] The real failure mode of pure vector search is exact terminology…
 ```
-
-A Chinese query will hit English saves and the other way around — which is the whole
-point of wiring up Bilibili and YouTube at the same time.
-
----
-
-## Install the browser extension
-
-Do this first. It is the only part that needs no credentials at all, and it covers every
-site the adapters cannot reach.
-
-1. Open `chrome://extensions` in Chrome / Edge
-2. Turn on "Developer mode" in the top right
-3. Click "Load unpacked" and pick this repo's `extension/` directory
-4. Make sure `chekhovsgun serve` (or `chekhovsgun tray`) is running
-
-Then just use the web normally:
-
-- **Click a site's own 收藏 / save / bookmark button** and the page comes in. Zhihu,
-  Xiaohongshu, WeChat articles, Weibo, Juejin, CSDN, Jianshu, Reddit, X, Stack Overflow
-  and Medium ship with recipes; YouTube and Bilibili work too.
-- **On a favourites page**, a button appears: *把这个收藏夹收进藏知*. It scrolls the whole
-  folder, collects every link, and fetches the article text in the background — this is
-  how you bring in the backlog you already have.
-- **Anywhere else**, click the extension icon and press *收进藏知*. That uses `activeTab`,
-  so the extension is granted access for that one click and holds no standing permission
-  to read your browsing.
-
-The extension talks only to `http://127.0.0.1:8700` and makes no other network requests.
-Port, cooldown, per-site switches and auto-capture are all in its options page.
-
-> Some sites use one button for both saving and un-saving. Where the control exposes its
-> state we read it; where it doesn't, a click is treated as a save. Anything captured by
-> mistake can be deleted from the dashboard.
-
-Adding a site is one entry in `extension/recipes.js` — no Python changes, because the
-server canonicalises whatever URL arrives and names the source itself. A site with no
-recipe still works through the toolbar button: the generic reader picks out the element
-carrying the most text that isn't inside links, which is the article on nearly any page.
 
 ---
 
@@ -421,21 +453,38 @@ export CHEKHOVSGUN_LLM_BASE_URL=            # any OpenAI-compatible endpoint
 
 | What | Where |
 | --- | --- |
-| Index database | `$CHEKHOVSGUN_HOME/index.db` (defaults to `~/.chekhovsgun/`, `%LOCALAPPDATA%` on Windows) |
-| Config | `config.toml` in the same directory, or environment variables (see `.env.example`) |
+| Extension library | IndexedDB (`chekhovsgun`) in your browser profile — items, chunks, vectors |
+| Extension settings | `chrome.storage.sync` |
+| On-device encoder | `extension/models/`, fetched by `npm run fetch-model`, never committed |
+| Backend index (optional) | `$CHEKHOVSGUN_HOME/index.db` (defaults to `~/.chekhovsgun/`, `%LOCALAPPDATA%` on Windows) |
+| Backend config | `config.toml` in the same directory, or environment variables (see `.env.example`) |
 | Credentials | Only in your environment variables / config file; always masked in API responses |
 
-The server binds `127.0.0.1` only. No telemetry, no outbound reporting.
+The extension makes no network requests at all unless you switch the backend on, and
+then only to `127.0.0.1`. The server binds `127.0.0.1` only. No telemetry, no outbound
+reporting.
 
 ---
 
 ## Development
 
 ```bash
+npm install && npm test     # the extension: 111 tests, no browser needed
 pip install -e ".[dev]"
-pytest                      # everything
+pytest                      # the backend
 pytest tests/test_relevance.py -v   # golden-set regression for retrieval quality
 ```
+
+The JavaScript engine in `extension/core/` is a port of the Python one, and the port is
+held to it by fixtures captured from the real Python functions — tokenizer output, chunk
+boundaries, chunk ids, URL identity and the coverage/confidence arithmetic all have to
+match exactly. Regenerate them with `python scripts/gen_fixtures.py` if you change either
+side. Ranking itself is compared behaviourally rather than numerically, because the two
+engines deliberately use different hash functions and so different vector spaces.
+
+`extension/core/` imports nothing from the browser — no `chrome.*`, no DOM, no `fetch` —
+and a test enforces that. Storage sits behind one file (`extension/platform/idb.js`), so
+the planned Android app can take the engine unchanged and supply SQLite instead.
 
 `tests/test_relevance.py` is the file worth reading: it pins down concrete examples of
 what *should* fire and what *shouldn't*, cross-language cases included. Any retrieval
@@ -450,6 +499,16 @@ the code doesn't know where a chunk came from.
 ## Packaging
 
 ```bash
+npm run build                       # → dist/chekhovsgun-<version>-{lite,with-model}.zip
+```
+
+The zip is "with-model" if `npm run fetch-model` has been run and "lite" otherwise; the
+build prints which one it made, because the difference is ~120MB and a real difference in
+retrieval quality.
+
+For the optional backend:
+
+```bash
 pip install -e ".[tray]" pyinstaller
 pyinstaller chekhovsgun.spec        # → dist/ChekhovsGun(.exe)
 ```
@@ -460,8 +519,9 @@ both. Pushing a tag has CI build artifacts for all three platforms plus the exte
 
 ## Known limitations
 
-- The default hashed encoder has no real semantics. For cross-language and paraphrase
-  cases, switch to a neural encoder (above).
+- Until you run `npm run fetch-model`, the extension retrieves with BM25 plus a hashed
+  encoder, which has no real semantics — cross-language and paraphrase matching need the
+  on-device model.
 - Bilibili SESSDATA expires in about a month; YouTube OAuth tokens expire in an hour, so
   long-running syncs need your own refresh.
 - The Whisper fallback needs ffmpeg on the machine and is CPU-bound; the first run

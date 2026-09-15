@@ -54,6 +54,7 @@
    "text": "uh uh uh uh",
    "start": 0.0,
    "end": 80.0,
+   "kind": "transcript",
    "ordinal": 0,
    "id": "463e0cd9c5378ceee6fa"
   },
@@ -61,6 +62,7 @@
    "text": "uh uh uh uh",
    "start": 80.0,
    "end": 160.0,
+   "kind": "transcript",
    "ordinal": 1,
    "id": "7b25928b2f310a855576"
   },
@@ -68,6 +70,7 @@
    "text": "uh uh uh uh",
    "start": 160.0,
    "end": 240.0,
+   "kind": "transcript",
    "ordinal": 2,
    "id": "30fb642142f36d3004a9"
   }
@@ -75,54 +78,62 @@
  "text": [
   {
    "text": "第一句话讲的是向量检索。 第二句话讲的是倒排索引。 Third sentence is in English. 第一句话讲的是向量检索。 第二句话讲的是倒排索引。 Third sentence is in English. 第一句话讲的是向量检索。 第二句话讲的是倒排索引。 Third sentence is in English. 第一句话讲的是向量检索。 第二句话讲的是倒排索引。 Third sentence is in English. 第一句话讲的是向量检索。 第二句话讲的是倒排索引。 Third sentence is in English. 第一句话讲的是向量检索。 第二句话讲的是倒排索引。 Third sentence is in English.",
-   "ordinal": 0,
+   "start": 0.0,
+   "end": 0.0,
    "kind": "description",
+   "ordinal": 0,
    "id": "52cc61a1cba237b0c90c"
   }
  ],
  "item": [
   {
    "text": "怎么做红烧肉 · 张三 · 烹饪 家常菜 · 收藏夹",
-   "ordinal": 0,
-   "kind": "title",
-   "id": "1505679ad6e50306fe4f",
    "start": 0.0,
-   "end": 0.0
+   "end": 0.0,
+   "kind": "title",
+   "ordinal": 0,
+   "id": "1505679ad6e50306fe4f"
   },
   {
    "text": "第0段正文，讲的是火候和糖色的控制方法。 第1段正文，讲的是火候和糖色的控制方法。 第2段正文，讲的是火候和糖色的控制方法。 第3段正文，讲的是火候和糖色的控制方法。 第4段正文，讲的是火候和糖色的控制方法。 第5段正文，讲的是火候和糖色的控制方法。 第6段正文，讲的是火候和糖色的控制方法。 第7段正文，讲的是火候和糖色的控制方法。",
-   "ordinal": 1,
-   "kind": "body",
-   "id": "bf3565bc19ab2f4fa110",
    "start": 0,
-   "end": 0
+   "end": 0,
+   "kind": "body",
+   "ordinal": 1,
+   "id": "bf3565bc19ab2f4fa110"
   },
   {
    "text": "很有用的分享 ↳ 同感，我也试过了",
-   "ordinal": 2,
-   "kind": "comment",
-   "id": "eef1e9ebc4c9f7a2a17c",
    "start": 0.0,
-   "end": 0.0
+   "end": 0.0,
+   "kind": "comment",
+   "ordinal": 2,
+   "id": "eef1e9ebc4c9f7a2a17c"
   }
  ],
  "item_video": [
   {
    "text": "How Vector DBs Work · Deep Dive",
-   "ordinal": 0,
+   "start": 0.0,
+   "end": 0.0,
    "kind": "title",
+   "ordinal": 0,
    "id": "5b3e89a513314bc024eb"
   },
   {
    "text": "A talk about ANN indexes and recall.",
-   "ordinal": 1,
+   "start": 0.0,
+   "end": 0.0,
    "kind": "description",
+   "ordinal": 1,
    "id": "81b3f15d73a01874f13c"
   },
   {
    "text": "sentence number 0 about vector search and embeddings. sentence number 1 about vector search and embeddings. sentence number 2 about vector search and embeddings. sentence number 3 about vector search and embeddings. sentence number 4 about vector search and embeddings. sentence number 5 about vector search and embeddings.",
-   "ordinal": 2,
+   "start": 0.0,
+   "end": 18.0,
    "kind": "transcript",
+   "ordinal": 2,
    "id": "f636329d5fe4cadeab79"
   }
  ]

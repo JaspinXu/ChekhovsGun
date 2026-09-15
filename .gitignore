@@ -16,7 +16,10 @@ htmlcov/
 .idea/
 .vscode/
 
-# Extension build artefacts and the fetched encoder (too large for git)
+# Extension build artefacts, plus the fetched encoder and the vendored
+# transformers.js runtime — both are large third-party payloads installed by
+# `npm run fetch-model`, not source.
 node_modules/
 extension/models/
+extension/vendor/
 dist/
