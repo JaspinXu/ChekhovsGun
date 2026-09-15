@@ -198,3 +198,36 @@ class TestColdStart:
         assert posts.store.item_count() >= 15
         result = posts.relate(Context(title="磨豆机怎么选择，手摇还是电动"))
         assert result["reason_code"] != "library_too_small"
+
+
+class TestTheCardsSentence:
+    """What the popup says about a post must come from the post's prose.
+
+    The extractive fallback picks a passage to quote. It used to look only for
+    `transcript` chunks, so once a post's body was labelled `body` it fell
+    through to "any chunk long enough" — which is the header chunk, built from
+    the title and author. The card then read "其中提到：<the title again>".
+    """
+
+    def test_the_quote_comes_from_the_body_not_the_title(self, posts):
+        result = posts.relate(
+            Context(title="软删除的表怎么建索引更省空间 partial index"), use_cache=False
+        )
+        assert result["fired"]
+        quote = result["explanation"]["text"].split("其中提到：")[-1]
+        assert "部分索引" in quote or "deleted_at" in quote
+        assert "知乎收藏夹" not in quote  # the header chunk's folder marker
+
+    def test_a_video_still_quotes_its_transcript(self, seeded):
+        result = seeded.relate(Context(title="RAG 分块与混合检索"), use_cache=False)
+        assert result["fired"]
+        chunk_kinds = {c["kind"] for c in result["hits"][0]["chunks"]}
+        assert "transcript" in chunk_kinds
+        assert result["explanation"]["text"].split("其中提到：")[-1].strip()
+
+    def test_no_llm_is_called_without_an_api_key(self, posts):
+        # The default path is extractive. Nothing leaves the machine.
+        assert posts.config.llm.usable is False
+        result = posts.relate(Context(title="RRF 融合与混合检索"), use_cache=False)
+        assert result["explanation"]["generated"] is False
+        assert result["explanation"]["model"] == ""

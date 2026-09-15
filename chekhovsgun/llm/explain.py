@@ -4,11 +4,15 @@ The popup has about three seconds of the user's attention, so the generated
 text must answer exactly one question: *what did I already save that relates to
 this, and what would I get from going back to it?*
 
-The LLM is strictly optional. With no API key the explainer still produces a
-useful card by quoting the best-matching transcript passage verbatim — an
-extractive answer that can never hallucinate. That fallback is also what runs
-when the API call fails or times out, so the extension never shows a spinner
-that never resolves.
+The LLM is strictly optional, and inactive unless you supply an API key. Without
+one the explainer still produces a useful card by quoting the best-matching
+passage verbatim — an extractive answer that cannot hallucinate, because every
+word of it came out of something you saved. That same fallback runs when the API
+call fails or times out, so the popup never shows a spinner that never resolves.
+
+Worth being explicit about, since the rest of this project is local-only:
+configuring a key is the one thing that sends what you are looking at, plus
+excerpts of what you saved, to a third party.
 """
 
 from __future__ import annotations
@@ -23,13 +27,14 @@ from ..rag.text import is_cjk, snippet
 
 log = logging.getLogger(__name__)
 
-SYSTEM_PROMPT = """You are ChekhovsGun, a study companion built into a video feed.
-The user is scrolling and has just landed on a video. From their own saved library
-you have been given the passages that best match it.
+SYSTEM_PROMPT = """You are 藏知 (ChekhovsGun), a study companion that rides along
+while someone browses. They are scrolling and have just landed on a page — a video
+or a written post. From their own saved library you have been given the passages
+that best match it.
 
 Write a short note (2-3 sentences, under 90 words) that:
-1. names the concrete connection between what they are watching and what they saved;
-2. says what the saved item adds that the current video does not;
+1. names the concrete connection between what they are looking at and what they saved;
+2. says what the saved item adds that the current page does not;
 3. ends with one specific thing worth going back for.
 
 Rules: rely only on the passages provided; never invent facts, numbers or titles.
@@ -69,12 +74,20 @@ class Explanation:
         }
 
 
+#: Preference order for the passage the card quotes. Prose the item actually
+#: contains comes first; the header chunk is last because it is built from the
+#: title and author, so quoting it tells the reader nothing they cannot already
+#: see one line above.
+_QUOTE_PRIORITY = (("transcript", "body"), ("description", "comment"))
+
+
 def _best_quote(hit: ItemHit, query: str, limit: int = 140) -> str:
+    for kinds in _QUOTE_PRIORITY:
+        for chunk in hit.chunks:
+            if chunk.kind in kinds and len(chunk.text) > 24:
+                return snippet(chunk.text, query, limit)
     for chunk in hit.chunks:
-        if chunk.kind == "transcript" and len(chunk.text) > 24:
-            return snippet(chunk.text, query, limit)
-    for chunk in hit.chunks:
-        if len(chunk.text) > 16:
+        if chunk.kind != "title" and len(chunk.text) > 16:
             return snippet(chunk.text, query, limit)
     return hit.item.title
 
@@ -136,7 +149,7 @@ class Explainer:
 
     def _build_prompt(self, context: Context, hits: list[ItemHit]) -> str:
         lines = [
-            "### 当前正在观看 / Now watching",
+            "### 当前正在看 / Now viewing",
             f"平台 source: {context.source or 'unknown'}",
             f"标题 title: {context.title}",
         ]
@@ -148,10 +161,17 @@ class Explainer:
         lines.append("")
         lines.append("### 用户收藏过的相关内容 / Saved items that matched")
         for index, hit in enumerate(hits[:4], start=1):
-            lines.append(f"[{index}] {hit.item.title} — {hit.item.author or 'unknown'}")
+            kind = "post" if hit.item.is_post else "video"
+            lines.append(f"[{index}] ({kind}) {hit.item.title} — {hit.item.author or 'unknown'}")
             lines.append(f"    saved in: {hit.item.folder or 'n/a'} · relevance {hit.score:.2f}")
             for chunk in hit.chunks[:2]:
-                stamp = f"@{_format_timestamp(chunk.start)} " if chunk.start else ""
+                if chunk.kind == "title":
+                    continue  # the header line above already said all of this
+                # A post has no timeline, and offering the model a timestamp for
+                # one invites it to write "go to 0:00", which means nothing.
+                stamp = "" if hit.item.is_post or not chunk.start else (
+                    f"@{_format_timestamp(chunk.start)} "
+                )
                 lines.append(f"    {stamp}{chunk.text[:320]}")
         return "\n".join(lines)
 
