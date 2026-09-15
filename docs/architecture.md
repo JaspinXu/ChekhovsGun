@@ -78,5 +78,5 @@ packaging/             PyInstaller 入口与图标
                                           按 0.2·分数 + 0.8·置信度 排序
 ```
 
-置信度和排序分数是两个不同的东西，理由见 README 的「检索是怎么做的」。
+置信度和排序分数是两个不同的东西，理由见 README.zh-CN.md 的「检索是怎么做的」。
 `tests/test_relevance.py` 把这条链路的行为钉成了黄金集回归。

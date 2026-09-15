@@ -1,65 +1,74 @@
-# ChekhovsGun · 契诃夫的枪
+# ChekhovsGun
 
-> 如果第一幕墙上挂着一把枪，第三幕它就必须开火。
-> 你收藏的每一条内容，也应该如此。
+**English** · [简体中文](README.zh-CN.md)
 
-**你收藏过的东西，会在你刷视频刷到相关内容时自己跳出来找你。**
+> If a gun hangs on the wall in the first act, it must go off in the third.
+> Everything you bookmark deserves the same.
 
-我们都干过同一件事：刷到一个讲得特别好的教程，点了收藏，想着"以后一定看"，
-然后它就永远躺在收藏夹里了。ChekhovsGun 把这件事反过来做——不需要你想起来去翻收藏夹，
-而是在你**正在刷**相关视频的那一刻，告诉你「这个你收藏过」，并把当时那条内容里
-相关的段落直接讲给你听。
+**The things you saved come find you — right when you're scrolling past something related.**
 
-全部在本地运行。你的收藏夹和观看记录不会离开这台机器。
+We've all done it: you stumble onto a genuinely great tutorial, hit save, tell yourself
+you'll watch it later, and it stays in that folder forever. ChekhovsGun inverts the
+problem. Instead of hoping you'll remember to dig through your bookmarks, it waits until
+you're **actually watching** something related and tells you "you already saved this" —
+then reads you the relevant passage from what you saved.
 
-<!-- 目前支持 YouTube 与 哔哩哔哩，两边的收藏可以互相触发：
-     刷英文视频时弹出你收藏的中文讲解，反之亦然。 -->
+Everything runs locally. Your bookmarks and your watch history never leave this machine.
+
+<!-- YouTube and Bilibili are both supported, and saves on one side can fire on the
+     other: a Chinese explainer you saved can surface while you're watching an English
+     video, and vice versa. -->
 
 ---
 
-## 它是怎么工作的
+## How it works
 
 ```
-  收藏夹                     索引                        刷视频时
-┌──────────┐   字幕/简介   ┌──────────────┐          ┌──────────────┐
-│ YouTube  │──────────────▶│  分块 + 向量  │          │ 浏览器扩展    │
-│ 收藏夹    │               │  + BM25 倒排  │◀─────────│ 识别当前视频  │
-│ Bilibili │──────────────▶│   SQLite     │  混合检索 │              │
-└──────────┘               └──────────────┘          └──────┬───────┘
+  Bookmarks                  Index                     While you scroll
+┌──────────┐  subs / desc  ┌──────────────┐          ┌──────────────┐
+│ YouTube  │──────────────▶│ chunks + vec │          │  extension   │
+│  saves   │               │  + BM25 idx  │◀─────────│  sees the    │
+│ Bilibili │──────────────▶│    SQLite    │  hybrid  │ current video│
+└──────────┘               └──────────────┘retrieval └──────┬───────┘
                                    │                        │
-                                   └────── 命中的收藏 ───────▶│ 弹出卡片
-                                          + 一段解读          └──────────┘
+                                   └────── matching save ───▶│  card pops
+                                          + a short read     └──────────┘
 ```
 
-1. **抓取** — 从 YouTube 播放列表 / Liked / Watch Later 和 B 站收藏夹、稍后再看
-   拉取你保存过的视频，连同字幕（B 站 CC 字幕与 AI 字幕都要）、以及**高赞评论**。
-   完全没有字幕的视频，会用本地 Whisper 转写兜底。
-2. **索引** — 按时间轴把字幕切成带时间戳的段落，算向量，同时建 BM25 倒排。
-3. **检索** — 混合检索 + RRF 融合，再用一个独立的**置信度**决定「到底要不要打扰你」。
-4. **开火** — 浏览器扩展识别你当前在看的视频，命中就弹一张卡片，
-   点进去直接跳到收藏视频里讲这件事的那一秒。
-5. **收枪** — 看完了点一下「已消化」，它就不会再来烦你。
-   这个数字（而不是弹出次数）才是这个项目的成功指标。
+1. **Ingest** — Pull saved videos from YouTube playlists / Liked / Watch Later and from
+   Bilibili favorite folders and Watch Later, along with their subtitles (both Bilibili's
+   human CC tracks and its AI-generated ones) and **top comments**. Videos with no
+   subtitles at all fall back to local Whisper transcription.
+2. **Index** — Cut subtitles into timestamped passages along the timeline, embed them,
+   and build a BM25 inverted index alongside.
+3. **Retrieve** — Hybrid retrieval fused with RRF, plus a separate **confidence** score
+   that decides whether this is worth interrupting you at all.
+4. **Fire** — The browser extension recognizes the video you're on; on a hit it floats a
+   card, and clicking through jumps straight to the second where your saved video covers
+   that exact thing.
+5. **Holster** — When you've watched it, hit "digested" and it stops bothering you.
+   That number — not the number of popups — is this project's success metric.
 
 ---
 
-## 30 秒跑起来
+## Run it in 30 seconds
 
-不需要任何 API key，先看看它长什么样：
+No API keys needed. See what it looks like first:
 
 ```bash
 git clone https://github.com/JaspinXu/ChekhovsGun.git
 cd ChekhovsGun
 pip install -e .
 
-chekhovsgun demo      # 灌一批示例收藏，并演示一次检索
-chekhovsgun tray      # 后台常驻 + 托盘图标，自动打开仪表盘
+chekhovsgun demo      # load sample saves and run one retrieval
+chekhovsgun tray      # background daemon + tray icon, opens the dashboard
 ```
 
-不想装 Python 的话，[Releases](https://github.com/JaspinXu/ChekhovsGun/releases)
-里有打包好的单文件程序，双击即可；`chekhovsgun serve` 仍然是等价的前台版本。
+Don't want to install Python? [Releases](https://github.com/JaspinXu/ChekhovsGun/releases)
+has a packaged single-file build — just double-click it. `chekhovsgun serve` remains the
+equivalent foreground version.
 
-`demo` 会输出类似这样的东西：
+`demo` prints something like this:
 
 ```
 pretending you just scrolled onto:
@@ -77,37 +86,41 @@ pretending you just scrolled onto:
      [16:40] The real failure mode of pure vector search is exact terminology…
 ```
 
-中文查询同样会命中英文收藏，反过来也一样——这正是同时接 B 站和 YouTube 的意义。
+A Chinese query will hit English saves and the other way around — which is the whole
+point of wiring up Bilibili and YouTube at the same time.
 
 ---
 
-## 接上你自己的收藏夹
+## Connect your own bookmarks
 
-### 哔哩哔哩
+### Bilibili
 
-B 站没有公开 API，所以用你浏览器里的 cookie。在已登录的 bilibili.com 页面按
-F12 → Application → Cookies，复制 `SESSDATA`：
-
-```bash
-export CHEKHOVSGUN_BILIBILI_SESSDATA="你的 SESSDATA"
-export CHEKHOVSGUN_BILIBILI_UID="你的 uid"        # 可选，不填会自动探测
-
-chekhovsgun ingest --source bilibili --limit 20   # 先拿 20 条试试
-chekhovsgun ingest --source bilibili              # 全量同步
-```
-
-默认会同步**所有**自建收藏夹 + 稍后再看。只要某几个收藏夹的话：
+Bilibili has no public API, so it uses the cookie from your browser. On a logged-in
+bilibili.com page press F12 → Application → Cookies and copy `SESSDATA`:
 
 ```bash
-export CHEKHOVSGUN_BILIBILI_FOLDERS="深度学习,后端"   # 收藏夹名或 media_id
+export CHEKHOVSGUN_BILIBILI_SESSDATA="your SESSDATA"
+export CHEKHOVSGUN_BILIBILI_UID="your uid"        # optional, auto-detected if omitted
+
+chekhovsgun ingest --source bilibili --limit 20   # try 20 first
+chekhovsgun ingest --source bilibili              # full sync
 ```
 
-> SESSDATA 有效期约一个月，过期后重新复制一次即可。
-> 它只保存在你自己的环境变量或 `config.toml` 里，不会发到任何地方。
+By default it syncs **every** folder you created, plus Watch Later. To restrict it to a
+few:
+
+```bash
+export CHEKHOVSGUN_BILIBILI_FOLDERS="deep-learning,backend"   # folder names or media_ids
+```
+
+> SESSDATA lasts about a month; just copy a fresh one when it expires.
+> It only ever lives in your own environment variables or `config.toml` — it is never
+> sent anywhere.
 
 ### YouTube
 
-公开/不公开播放列表用 API key 就够了（Google Cloud → 启用 YouTube Data API v3）：
+Public and unlisted playlists need nothing but an API key (Google Cloud → enable the
+YouTube Data API v3):
 
 ```bash
 export CHEKHOVSGUN_YOUTUBE_API_KEY="AIza..."
@@ -116,131 +129,146 @@ export CHEKHOVSGUN_YOUTUBE_PLAYLISTS="PLxxxxxxxx,PLyyyyyyyy"
 chekhovsgun ingest --source youtube
 ```
 
-Liked（`LL`）和 Watch Later（`WL`）是账号私有的，需要 OAuth access token：
+Liked (`LL`) and Watch Later (`WL`) are private to the account and need an OAuth access
+token:
 
 ```bash
 export CHEKHOVSGUN_YOUTUBE_OAUTH_TOKEN="ya29..."
-chekhovsgun ingest --source youtube      # 不指定播放列表时自动抓 LL 和 WL
+chekhovsgun ingest --source youtube      # with no playlists set, grabs LL and WL
 ```
 
-字幕推荐装上官方社区的库，覆盖率更高：
+For better subtitle coverage, install the community transcript library:
 
 ```bash
 pip install -e ".[youtube]"
 ```
 
-### 都不想配？
+### Don't want to configure any of it?
 
-任何 json / jsonl / csv / 纯链接列表都能直接导入：
+Any json / jsonl / csv / plain list of links imports directly:
 
 ```bash
-chekhovsgun import my-saves.json          # 支持 Google Takeout 导出
-chekhovsgun import urls.txt               # 一行一个链接
+chekhovsgun import my-saves.json          # Google Takeout exports work
+chekhovsgun import urls.txt               # one link per line
 ```
 
 ---
 
-## 装上浏览器扩展
+## Install the browser extension
 
-1. Chrome / Edge 打开 `chrome://extensions`
-2. 打开右上角「开发者模式」
-3. 点「加载已解压的扩展程序」，选择本仓库的 `extension/` 目录
-4. 确保 `chekhovsgun serve` 正在运行
+1. Open `chrome://extensions` in Chrome / Edge
+2. Turn on "Developer mode" in the top right
+3. Click "Load unpacked" and pick this repo's `extension/` directory
+4. Make sure `chekhovsgun serve` is running
 
-之后你在 YouTube 或 B 站上打开任何视频，如果收藏夹里有相关内容，
-右下角会浮出一张卡片。点击标题栏折叠，点 × 关闭，
-「这个视频不再提示」会把它静音到浏览器重启。
+From then on, opening any video on YouTube or Bilibili floats a card in the bottom right
+if something related is sitting in your bookmarks. Click the title bar to collapse it, ×
+to dismiss, and "don't remind me about this video" to mute it until the browser restarts.
 
-扩展只访问 `http://127.0.0.1:8700`，不做任何其他网络请求。
-端口、冷却时间、每个站点是否启用，都可以在扩展的选项页里改。
+The extension talks only to `http://127.0.0.1:8700` and makes no other network requests.
+Port, cooldown, and per-site enablement are all editable in the extension's options page.
 
 ---
 
-## 三个内容源
+## Three content sources
 
-**字幕**是主力。B 站的 CC 字幕和 AI 字幕都收，人工优先；YouTube 走播放器那条路。
+**Subtitles** do the heavy lifting. Bilibili's CC and AI tracks are both collected, with
+human ones preferred; YouTube goes through the player route.
 
-**评论**是被大多数同类工具忽略的一座金矿。高赞评论里常有视频本身没有的东西：
-勘误、UP 跳过的前置知识、"其实 7.0 之后已经不是这样了"。而且它是纯文本，
-一个请求就能拿到，是这个项目里性价比最高的内容。
+**Comments** are a goldmine most comparable tools ignore. Top comments routinely contain
+what the video itself doesn't: corrections, the prerequisite the author skipped, "this
+actually changed after 7.0." They're plain text and arrive in a single request — the best
+value-per-byte content in the project.
 
 ```bash
-chekhovsgun ingest --no-comments    # 不想要的话
+chekhovsgun ingest --no-comments    # if you'd rather not
 ```
 
-**本地语音转写**是兜底。真实收藏夹里大约三分之一的视频两种字幕都没有，
-这些以前只能靠标题和简介入库，既检索不准也没法跳转。现在用 faster-whisper
-在本地补上：
+**Local transcription** is the fallback. In a real bookmark folder roughly a third of the
+videos have neither kind of subtitle; those used to enter the index on title and
+description alone, which retrieves badly and can't deep-link. faster-whisper now fills
+them in locally:
 
 ```bash
 pip install -e ".[whisper]"     # faster-whisper + yt-dlp
 chekhovsgun ingest --source bilibili
 ```
 
-音频不出本机。因为转写是分钟级而不是毫秒级的，它有两道闸：单个视频超过 45 分钟
-就跳过，每次同步最多花 30 分钟在转写上（都可配置）。它挂在管线上而不是某个
-adapter 里——只要有 URL 就能用，所以以后加第三个来源时是白送的。
+Audio never leaves the machine. Because transcription is a minutes-scale rather than
+milliseconds-scale operation, it has two gates: skip any single video over 45 minutes, and
+spend at most 30 minutes per sync on transcription (both configurable). It hangs off the
+pipeline rather than living inside an adapter — it works given any URL, so a third source
+gets it for free.
 
 ---
 
-## 收藏的一生
+## The life of a save
 
-一件收藏有三个状态，用来回答「开火之后呢」：
+A save has three states, which exist to answer "what happens after it fires":
 
-| 状态 | 含义 | 还会弹吗 | 算进消化率吗 |
+| State | Meaning | Still pops? | Counts toward digestion rate? |
 | --- | --- | --- | --- |
-| 待消化 | 默认 | 会 | — |
-| **已消化** | 你回去看完了，学到了 | 不会 | **算** |
-| 已静音 | 别再拿这个烦我 | 不会 | 不算 |
+| Active | Default | Yes | — |
+| **Digested** | You went back, watched it, learned something | No | **Yes** |
+| Muted | Stop bringing this up | No | No |
 
 ```bash
-chekhovsgun mark https://www.bilibili.com/video/BV1xx --digested --tag 注意力
-chekhovsgun items --status active          # 还欠着的
-chekhovsgun items --tag 注意力
+chekhovsgun mark https://www.bilibili.com/video/BV1xx --digested --tag attention
+chekhovsgun items --status active          # what you still owe yourself
+chekhovsgun items --tag attention
 ```
 
-卡片上直接有「✓ 已消化」按钮，仪表盘里也能按状态和标签筛。
+The card has a "✓ digested" button right on it, and the dashboard filters by state and
+tag.
 
-两个设计细节：**静音只停止打扰，不影响检索**——你主动搜的时候它照样出来；
-**重新同步永远不会覆盖你的标记**，`upsert` 刻意不碰 `status` / `user_tags` / `note`
-这三列，否则每晚一次同步就会把你消化过的东西又翻出来。
+Two design details: **muting stops interruptions but not retrieval** — it still shows up
+when you search deliberately; and **re-syncing never overwrites your marks**. `upsert`
+deliberately leaves the `status` / `user_tags` / `note` columns alone, otherwise a nightly
+sync would resurrect everything you'd already digested.
 
 ---
 
-## 检索是怎么做的（以及为什么这么做）
+## How retrieval works (and why)
 
-这部分是整个项目里真正需要动脑子的地方。
+This is the part of the project that actually required thinking.
 
-**混合检索。** 默认的向量后端是一个零依赖的哈希 n-gram 编码器——克隆下来就能用，
-不需要 API key，不需要下模型。代价是它没有真正的语义，
-容易被「语域相同但主题无关」的文本骗到。BM25 的失败模式正好相反：
-它对专有名词（`KV cache`、`BV1xx4y1`）极准，但完全不懂同义改写。
-两个一起用，再用 **RRF** 融合——RRF 只看排名不看分数，
-所以不需要校准两条完全不同量纲的分数，也不会被一个离群分数带偏。
+**Hybrid retrieval.** The default vector backend is a zero-dependency hashed n-gram
+encoder — it works straight out of a clone, with no API key and no model download. The
+price is that it has no real semantics and is easily fooled by text in the same register
+on an unrelated topic. BM25's failure mode is exactly the opposite: dead accurate on
+proper nouns (`KV cache`, `BV1xx4y1`), completely blind to paraphrase. Run both and fuse
+with **RRF** — RRF looks only at ranks, not scores, so there's nothing to calibrate
+between two scales that have nothing in common, and one outlier score can't drag the
+result off course.
 
-**中文分词。** 中文没有空格，直接按空白切会把一整句话变成一个 token。
-这里用的是 CJK **字符二元组** + 拉丁词的组合，向量和 BM25 共用同一套分词，
-保证两条召回路径看到的是同一份文本。
+**Chinese tokenization.** Chinese has no spaces, so splitting on whitespace turns an
+entire sentence into a single token. This uses CJK **character bigrams** combined with
+Latin words, and the vector path and the BM25 path share the same tokenizer so both recall
+routes see identical text.
 
-**置信度与排序是两件事。** RRF 分数只能排序，不能回答「这到底要不要弹出来」——
-它的取值范围随语料规模漂移。所以另算了一个 0~1 的**置信度**：
-向量余弦 × 查询词的 IDF 加权覆盖率，两者都不高就判定为无关。
-几个关键细节：
+**Confidence and ranking are two different things.** An RRF score can order results but
+can't answer "should this pop up at all" — its range drifts with corpus size. So
+confidence is computed separately on a 0–1 scale: vector cosine × IDF-weighted coverage of
+the query terms, and if neither is high the result is judged irrelevant. A few details
+matter:
 
-- **语料里没出现过的词不计入分母。** "How I made my React app 10x faster"
-  只应该按 `react` 来判断，而不是被四个收藏里根本不可能出现的词稀释掉。
-- **按书写系统分开算覆盖率。** 中文查询词永远不可能出现在英文字幕里，
-  把它算进分母会让所有跨语言命中看起来都不相关——
-  而跨语言恰恰是这个项目最有价值的场景。
-- **单个词的匹配不算证据。**「红烧肉的做法」和一个 Redis 讲解都含有「做法」。
-  覆盖率按命中词数做饱和衰减，一个词最多只能拿到约 56% 的分。
+- **Terms absent from the corpus don't count in the denominator.** "How I made my React
+  app 10x faster" should be judged on `react` alone, not diluted by four words that could
+  never appear in your saves.
+- **Coverage is computed per writing system.** Chinese query terms can never appear in
+  English subtitles; counting them in the denominator would make every cross-language hit
+  look irrelevant — and cross-language is exactly this project's most valuable case.
+- **A single matching term is not evidence.** "How do I braise pork" and a Redis explainer
+  both contain "how do I." Coverage decays with saturation over the number of matched
+  terms, so one term earns at most about 56% of the score.
 
-**每个收藏最多贡献 N 个片段。** 一个 40 分钟的讲座会切出几十个几乎一样的块。
-教科书答案是 MMR，但在这里是错的：结果最终要按**收藏**聚合，
-同一个收藏的多个片段是互相印证的证据，而 MMR 会把它们删掉——
-实测中它删掉的正是命中最好的那一段。改成按收藏限流，效果好得多。
+**At most N passages per save.** A 40-minute lecture cuts into dozens of near-identical
+chunks. The textbook answer is MMR, and it's wrong here: results are aggregated **by
+save** in the end, and multiple passages from one save are corroborating evidence — MMR
+deletes them, and in testing what it deleted was precisely the best-matching passage. A
+per-save cap works far better.
 
-想要更好的效果，换一个真正的多语言编码器就行，一行配置：
+Want better quality? Swap in a real multilingual encoder — one line of config:
 
 ```bash
 pip install -e ".[neural]"
@@ -248,7 +276,7 @@ export CHEKHOVSGUN_EMBEDDING_BACKEND=sentence-transformers
 chekhovsgun reindex
 ```
 
-或者任何 OpenAI 兼容的 embedding 接口（DashScope / SiliconFlow / Ollama / vLLM）：
+Or any OpenAI-compatible embedding endpoint (DashScope / SiliconFlow / Ollama / vLLM):
 
 ```bash
 export CHEKHOVSGUN_EMBEDDING_BACKEND=openai
@@ -258,121 +286,134 @@ export CHEKHOVSGUN_EMBEDDING_MODEL=text-embedding-v3
 chekhovsgun reindex
 ```
 
-### 性能
+### Performance
 
-在一个合成的 2000 条收藏 / 15555 个片段的库上（`python scripts/benchmark.py`）：
+On a synthetic library of 2,000 saves / 15,555 passages (`python scripts/benchmark.py`):
 
-| 指标 | 数值 |
+| Metric | Value |
 | --- | --- |
-| 建索引 | 10.3 s（约 1500 片段/秒，含分词与向量化） |
-| 冷启动（重建内存索引） | 1.5 s |
-| 检索 p50 / p95 | **6.1 ms / 8.0 ms** |
-| 完整 relate（含解读） | 7.3 ms |
-| 磁盘 | 65 MB |
-| 常驻内存（向量矩阵） | 32 MB |
+| Index build | 10.3 s (~1500 passages/s, tokenization and embedding included) |
+| Cold start (rebuild in-memory index) | 1.5 s |
+| Retrieval p50 / p95 | **6.1 ms / 8.0 ms** |
+| Full relate (including the read) | 7.3 ms |
+| Disk | 65 MB |
+| Resident memory (vector matrix) | 32 MB |
 
-几个让它变快的点，都是实测出来的而不是猜的：
+The things that made it fast, all measured rather than guessed:
 
-- **BM25 走 numpy。** 中文分词会产生字符一元组，常见字的倒排链有上万条，
-  用 Python 循环遍历一次查询要 56ms——占了整个查询耗时的 90%。
-  改成 numpy 数组 + 花式索引累加后降到 6ms。
-- **跳过高频词。** 出现在超过 35% 片段里的 token 直接跳过：
-  它们的 IDF 接近零，改变不了排序，却背着最长的倒排链。
-- **分词结果落库。** 1.5 万个片段分词一次要 6 秒，原来每次重建内存索引都要做一遍；
-  现在写入时算好存进 SQLite，冷启动降到 1.5 秒。
-- **缓存键用写计数器。** 之前每个请求都跑六条 COUNT，换成 store 的单调写计数器后是零成本。
+- **BM25 runs on numpy.** Chinese tokenization produces character unigrams, and common
+  characters have posting lists tens of thousands of entries long; walking one query in a
+  Python loop took 56 ms — 90% of total query time. Numpy arrays plus fancy-indexed
+  accumulation brought it down to 6 ms.
+- **Skip high-frequency terms.** Tokens appearing in more than 35% of passages are
+  dropped outright: their IDF is near zero so they can't change the ranking, yet they
+  carry the longest posting lists.
+- **Tokenization is persisted.** Tokenizing 15k passages takes 6 seconds, and it used to
+  happen on every in-memory index rebuild; now it's computed at write time and stored in
+  SQLite, cutting cold start to 1.5 s.
+- **The cache key is a write counter.** Six COUNT queries used to run per request; the
+  store's monotonic write counter costs nothing.
 
 ---
 
-## 那段"解读"
+## That little "read"
 
-命中之后卡片上会有一段话，说明这条收藏和你正在看的东西是什么关系、
-回去看能多得到什么。配了 LLM 就用 LLM 生成，没配就直接摘录字幕原文——
-**摘录永远不会编造内容**，所以默认路径是安全的，弹窗也不会卡在加载中。
+On a hit, the card carries a sentence explaining how the save relates to what you're
+watching and what you'd gain from going back. With an LLM configured it's generated;
+without one it quotes the subtitle text directly — **quoting can never fabricate**, so the
+default path is safe and the popup never hangs on a loading spinner.
 
 ```bash
 export CHEKHOVSGUN_LLM_API_KEY=sk-...
 export CHEKHOVSGUN_LLM_MODEL=gpt-4o-mini
-export CHEKHOVSGUN_LLM_BASE_URL=            # 任何 OpenAI 兼容端点
+export CHEKHOVSGUN_LLM_BASE_URL=            # any OpenAI-compatible endpoint
 ```
 
 ---
 
-## 命令行
+## Command line
 
-| 命令 | 作用 |
+| Command | What it does |
 | --- | --- |
-| `chekhovsgun demo` | 灌示例数据并跑一次检索 |
-| `chekhovsgun status` | 看库存、消化率、各来源是否配好 |
-| `chekhovsgun ingest [--source X] [--limit N] [--force]` | 同步收藏 |
-| `chekhovsgun ingest --whisper` / `--no-comments` | 强制本地转写 / 跳过评论 |
-| `chekhovsgun import <file>` | 从 json/jsonl/csv/txt 导入 |
-| `chekhovsgun search "查询"` | 搜自己的收藏 |
-| `chekhovsgun relate <url>` | 模拟：刷到这个视频会弹什么 |
-| `chekhovsgun mark <url> --digested` | 标记已消化 / 静音 / 打标签 |
-| `chekhovsgun items --status active` | 列出还欠着的收藏 |
-| `chekhovsgun tray` | 后台常驻，托盘图标 |
-| `chekhovsgun serve [--open]` | 前台起服务 + 仪表盘 |
-| `chekhovsgun reindex` | 换了 embedding 后重建向量 |
+| `chekhovsgun demo` | Load sample data and run one retrieval |
+| `chekhovsgun status` | Inventory, digestion rate, which sources are configured |
+| `chekhovsgun ingest [--source X] [--limit N] [--force]` | Sync bookmarks |
+| `chekhovsgun ingest --whisper` / `--no-comments` | Force local transcription / skip comments |
+| `chekhovsgun import <file>` | Import from json/jsonl/csv/txt |
+| `chekhovsgun search "query"` | Search your own saves |
+| `chekhovsgun relate <url>` | Simulate: what would pop up on this video |
+| `chekhovsgun mark <url> --digested` | Mark digested / muted / tagged |
+| `chekhovsgun items --status active` | List what you still owe yourself |
+| `chekhovsgun tray` | Background daemon with a tray icon |
+| `chekhovsgun serve [--open]` | Foreground server + dashboard |
+| `chekhovsgun reindex` | Rebuild vectors after changing the embedding backend |
 
 ---
 
-## 数据放在哪
+## Where the data lives
 
-| 内容 | 位置 |
+| What | Where |
 | --- | --- |
-| 索引数据库 | `$CHEKHOVSGUN_HOME/index.db`（默认 `~/.chekhovsgun/`，Windows 在 `%LOCALAPPDATA%`） |
-| 配置 | 同目录下的 `config.toml`，或环境变量（见 `.env.example`） |
-| 凭据 | 只在你的环境变量/配置文件里；API 返回时一律打码 |
+| Index database | `$CHEKHOVSGUN_HOME/index.db` (defaults to `~/.chekhovsgun/`, `%LOCALAPPDATA%` on Windows) |
+| Config | `config.toml` in the same directory, or environment variables (see `.env.example`) |
+| Credentials | Only in your environment variables / config file; always masked in API responses |
 
-服务只监听 `127.0.0.1`。没有遥测，没有外部上报。
+The server binds `127.0.0.1` only. No telemetry, no outbound reporting.
 
 ---
 
-## 开发
+## Development
 
 ```bash
 pip install -e ".[dev]"
-pytest                      # 全部测试
-pytest tests/test_relevance.py -v   # 检索质量的黄金集回归
+pytest                      # everything
+pytest tests/test_relevance.py -v   # golden-set regression for retrieval quality
 ```
 
-`tests/test_relevance.py` 是最值得看的一个文件：它把「该弹」和「不该弹」
-的具体例子钉死了，包括跨语言的。任何检索改动只要破坏了其中一条就会红。
+`tests/test_relevance.py` is the file worth reading: it pins down concrete examples of
+what *should* fire and what *shouldn't*, cross-language cases included. Any retrieval
+change that breaks one of them goes red.
 
-想加第三个来源（小红书、知乎、Pocket……），只需要实现
-`chekhovsgun/adapters/base.py` 里的三个方法：列出收藏、取正文、认 URL。
-其余代码不知道 chunk 是从哪来的。
+Adding a third source (Xiaohongshu, Zhihu, Pocket…) means implementing three methods from
+`chekhovsgun/adapters/base.py`: list saves, fetch content, recognize a URL. The rest of
+the code doesn't know where a chunk came from.
 
 ---
 
-## 打包
+## Packaging
 
 ```bash
 pip install -e ".[tray]" pyinstaller
 pyinstaller chekhovsgun.spec        # → dist/ChekhovsGun(.exe)
 ```
 
-打出来的单文件双击就是托盘模式；带参数运行时它仍然是完整的 CLI
-（`ChekhovsGun.exe ingest --source bilibili`），所以一个二进制两用。
-打 tag 推上去会由 CI 自动构建三个平台的产物和扩展压缩包。
+Double-clicking the resulting single file gives you tray mode; run it with arguments and
+it's still the full CLI (`ChekhovsGun.exe ingest --source bilibili`), so one binary does
+both. Pushing a tag has CI build artifacts for all three platforms plus the extension zip.
 
-## 已知限制
+## Known limitations
 
-- 默认的哈希编码器没有真正的语义。跨语言、同义改写这类场景建议换神经编码器（上面有）。
-- B 站 SESSDATA 约一个月过期；YouTube OAuth token 一小时过期，长期同步需要自己刷新。
-- Whisper 兜底需要本机有 ffmpeg，且是 CPU 密集的；第一次运行会下载模型。
-- YouTube 评论走 Data API，关闭评论的视频返回 403，这是正常的，会跳过。
-- 扩展在 YouTube Shorts 上可用，但竖屏信息流切换很快，默认 1.4 秒防抖可能仍偏敏感。
-- 桌面浏览器不是大多数人刷信息流的地方——手机端才是，那是另一个工程。
+- The default hashed encoder has no real semantics. For cross-language and paraphrase
+  cases, switch to a neural encoder (above).
+- Bilibili SESSDATA expires in about a month; YouTube OAuth tokens expire in an hour, so
+  long-running syncs need your own refresh.
+- The Whisper fallback needs ffmpeg on the machine and is CPU-bound; the first run
+  downloads a model.
+- YouTube comments go through the Data API, and videos with comments disabled return 403 —
+  that's expected, and they're skipped.
+- The extension works on YouTube Shorts, but the vertical feed switches fast and the
+  default 1.4 s debounce may still be too sensitive.
+- The desktop browser isn't where most people scroll — phones are, and that's a different
+  engineering problem.
 
 ## License
 
 MIT
 
-## 参考
+## Credits
 
-设计上借鉴了两个项目：[藏知 Studio](https://github.com/Y-iyilin/zangzhi-studio)
-（评论作为一等内容源、本地语音转写、local-first 的定位）和
-[拾光](https://github.com/zihuv/shiguang)（打包成安装包分发、标签与整理这套库管理）。
-两者解决的问题都和本项目不同，但那几个判断是对的。
+Two projects informed the design: [Zangzhi Studio](https://github.com/Y-iyilin/zangzhi-studio)
+(comments as a first-class content source, local transcription, the local-first stance) and
+[Shiguang](https://github.com/zihuv/shiguang) (shipping as an installable package, and the
+tag-and-organize library management). Both solve different problems than this one does, but
+those particular calls were right.
