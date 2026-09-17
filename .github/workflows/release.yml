@@ -49,10 +49,16 @@ jobs:
           "${{ matrix.binary }}" --version
           "${{ matrix.binary }}" demo
 
+      - name: Archive the backend
+        shell: bash
+        run: |
+          python -c "import platform; print('Architecture:', platform.machine())"
+          python -c "import zipfile; from pathlib import Path; binary = Path('${{ matrix.binary }}'); archive = zipfile.ZipFile('dist/${{ matrix.artifact }}.zip', 'w', zipfile.ZIP_DEFLATED); archive.write(binary, binary.name); archive.close()"
+
       - uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.artifact }}
-          path: ${{ matrix.binary }}
+          path: dist/${{ matrix.artifact }}.zip
 
   extension:
     runs-on: ubuntu-latest
@@ -83,3 +89,4 @@ jobs:
         with:
           files: artifacts/**/*
           generate_release_notes: true
+          draft: true
