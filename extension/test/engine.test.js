@@ -15,6 +15,7 @@ import { HashingEmbedder } from "../core/embed-hash.js";
 import { LocalEngine } from "../engine/local.js";
 import { RemoteEngine } from "../engine/remote.js";
 import { STATUS_DIGESTED } from "../core/ids.js";
+import { FallbackEmbedder } from "../engine/embed-proxy.js";
 
 function freshEngine(config = {}) {
   const store = new IdbStore(new IDBFactory(), `db-${Math.random().toString(36).slice(2)}`);
@@ -296,4 +297,74 @@ test("a video payload keeps its excerpt as a description", async () => {
   assert.equal(stored.source, "youtube");
   const hits = await engine.search("approximate nearest neighbour recall");
   assert.equal(hits.length, 1, "the description has to be indexed for a video");
+});
+
+test("the first query after model failure uses lexical fallback for model vectors", async () => {
+  const engine = freshEngine();
+  const hash = new HashingEmbedder();
+  const model = {
+    signature: "model:4",
+    embed: async (texts) => texts.map(() => Float32Array.from([1, 0, 0, 0])),
+    embedOne: async () => { throw new Error("model unavailable"); },
+  };
+  const fallback = new FallbackEmbedder(model, hash);
+  fallback.promote();
+  engine.setEmbedder(fallback);
+  await engine.capture(capture(1, "BM25 向量召回 融合", "混合检索把 BM25 和向量召回融合起来解决术语匹配。"));
+  const first = await engine.search("BM25 向量召回 融合");
+  assert.equal(first.length, 1, "the failing query itself must remain searchable");
+  assert.deepEqual(first, await engine.search("BM25 向量召回 融合"));
+});
+
+test("capture rejects missing and non-web URLs before storing anything", async () => {
+  const engine = freshEngine();
+  for (const url of ["", "javascript:alert(1)", "file:///private", "not a url"]) {
+    await assert.rejects(engine.capture({ url, title: "invalid" }), /url/i);
+  }
+  assert.equal((await engine.stats()).items, 0);
+});
+
+test("capturing an HTTP-only page preserves its navigable URL", async () => {
+  const engine = freshEngine();
+  const { item } = await engine.capture({ url: "http://localhost:8080/article", title: "Local article" });
+  assert.equal(item.url, "http://localhost:8080/article");
+});
+
+test("batch forwarding uses the backend batch route", async () => {
+  const requests = [];
+  const restore = stubFetch(async (url, options) => {
+    requests.push({ url, body: options.body && JSON.parse(options.body) });
+    return ok({ ok: true });
+  });
+  try {
+    const remote = new RemoteEngine();
+    const payload = { items: [{ url: "https://example.com/a", title: "A" }], origin: "scan" };
+    assert.equal(await remote.forwardCapture(payload), true);
+    assert.equal(requests.at(-1).url, "http://127.0.0.1:8700/api/capture/batch");
+    assert.deepEqual(requests.at(-1).body, payload);
+  } finally { restore(); }
+});
+
+test("an in-flight capture keeps its model signature after another query demotes it", async () => {
+  let finish, started;
+  const pending = new Promise((resolve) => { started = resolve; });
+  const model = { signature: "model:4",
+    embed: (texts) => new Promise((resolve) => {
+      finish = () => resolve(texts.map(() => Float32Array.from([1, 0, 0, 0])));
+      started();
+    }),
+    embedOne: async () => { throw new Error("model failure"); },
+  };
+  const engine = freshEngine();
+  const embedder = new FallbackEmbedder(model, new HashingEmbedder());
+  embedder.promote();
+  engine.setEmbedder(embedder);
+  const saving = engine.capture(capture(1, "BM25 向量召回", "混合检索把 BM25 和向量召回融合起来。"));
+  await pending;
+  await embedder.embedOne("query");
+  finish();
+  await saving;
+  const rows = await engine.store.allChunks();
+  assert.ok(rows.every((row) => row.embedder === "model:4" && row.vector.length === 4));
+  assert.equal((await engine.index()).vectorCoverage, 0);
 });

@@ -107,7 +107,8 @@ export class RemoteEngine {
   async forwardCapture(capture) {
     if (!(await this.available())) return false;
     try {
-      await this._request("/api/capture", { method: "POST", body: capture, timeout: 8000 });
+      const path = Array.isArray(capture.items) ? "/api/capture/batch" : "/api/capture";
+      await this._request(path, { method: "POST", body: capture, timeout: 8000 });
       return true;
     } catch {
       return false;

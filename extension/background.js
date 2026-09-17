@@ -15,6 +15,7 @@
 import { IdbStore } from "./platform/idb.js";
 import { HashingEmbedder } from "./core/embed-hash.js";
 import { deepLink } from "./core/deeplink.js";
+import { identifyUrl } from "./core/sites.js";
 import { LocalEngine } from "./engine/local.js";
 import { RemoteEngine } from "./engine/remote.js";
 import { FallbackEmbedder, ModelEmbedder } from "./engine/embed-proxy.js";
@@ -54,6 +55,7 @@ const remote = new RemoteEngine(DEFAULTS.serverUrl);
 
 async function getSettings() {
   const stored = await chrome.storage.sync.get(DEFAULTS);
+  remote.setBaseUrl(stored.serverUrl);
   return { ...DEFAULTS, ...stored, sites: { ...DEFAULTS.sites, ...(stored.sites || {}) } };
 }
 
@@ -61,6 +63,7 @@ async function getSettings() {
 
 const MODEL_ALARM = "chekhovsgun-model";
 const REEMBED_ALARM = "chekhovsgun-reembed";
+let modelGeneration = 0;
 
 /**
  * Try to bring the neural encoder online.
@@ -71,14 +74,17 @@ const REEMBED_ALARM = "chekhovsgun-reembed";
  * and the extension is fully usable on the hashing embedder meanwhile.
  */
 async function bootstrapModel() {
+  const generation = modelGeneration;
   const settings = await getSettings();
   if (!settings.useModel) return;
   if (embedder.usingModel) return;
   const ready = await ModelEmbedder.probe();
-  if (!ready) return;
+  if (!ready || generation !== modelGeneration) return;
+  if (!(await getSettings()).useModel || generation !== modelGeneration) return;
   embedder.promote();
   local.setEmbedder(embedder);
   await store.setMeta("embedder", embedder.signature);
+  if (generation !== modelGeneration || !embedder.usingModel) return;
   // Existing chunks were embedded by the hashing backend and are now in the
   // wrong vector space. They stay findable through BM25 while this catches up.
   chrome.alarms.create(REEMBED_ALARM, { periodInMinutes: 1 });
@@ -173,6 +179,10 @@ function toWire(hit) {
 
 async function handleRelate(context) {
   const settings = await getSettings();
+  if (context.url && !context.source_id) {
+    const identity = await identifyUrl(context.url);
+    context = { ...context, source: context.source || identity.source, source_id: identity.sourceId };
+  }
   if (!settings.enabled) return { fired: false, reason: "extension disabled" };
   if (context.source && settings.sites[context.source] === false) {
     return { fired: false, reason: `${context.source} disabled in settings` };
@@ -183,7 +193,10 @@ async function handleRelate(context) {
     return { fired: false, reason: "muted for this page" };
   }
 
-  const cached = cache.get(key);
+  const cacheKey = JSON.stringify([key, context.title, context.author, context.description,
+    context.tags, settings.maxItems, settings.useBackend, settings.serverUrl,
+    store.revision, embedder.signature]);
+  const cached = cache.get(cacheKey);
   if (cached && Date.now() - cached.at < CACHE_TTL_MS) {
     if (cached.payload.fired) await markFired(key);
     return { ...cached.payload, cached: true };
@@ -208,17 +221,18 @@ async function handleRelate(context) {
 
   const merged = federate(localResult.hits, remoteHits, { limit: settings.maxItems });
   const payload = {
+    contextKey: key,
     fired: merged.length > 0,
     hits: merged.map(toWire),
-    gated: localResult.gated,
+    gated: localResult.gated && !merged.length,
     itemCount: localResult.itemCount,
-    backend: remote._available,
-    reason: localResult.gated
+    backend: settings.useBackend && remote._available,
+    reason: localResult.gated && !merged.length
       ? `library too small (${localResult.itemCount}/${local.config.minLibraryItems})`
       : "",
   };
 
-  cache.set(key, { at: Date.now(), payload });
+  cache.set(cacheKey, { at: Date.now(), payload });
   if (cache.size > 200) cache.delete(cache.keys().next().value);
   if (payload.fired) await markFired(key);
   return payload;
@@ -244,23 +258,37 @@ async function handleCaptureBatch(payload, settings) {
   const rows = (payload && (payload.items || payload.rows)) || [];
   let added = 0;
   let skipped = 0;
+  let failed = 0;
+  const accepted = [];
   for (const row of rows) {
     try {
       if (await local.has(row.url)) {
         skipped += 1;
+        accepted.push(row);
         continue;
       }
       await local.capture(row);
       added += 1;
+      accepted.push(row);
     } catch (error) {
+      failed += 1;
       console.warn("[chekhovsgun] capture failed for", row && row.url, error);
     }
   }
   cache.clear();
-  if (settings.useBackend && rows.length) {
-    remote.forwardCapture({ items: rows }).catch(() => {});
+  if (settings.useBackend && accepted.length) {
+    remote.forwardCapture({ items: accepted, origin: payload?.origin || "scan" }).catch(() => {});
   }
-  return { ok: true, added, skipped, updated: 0 };
+  return { ok: true, added, skipped, failed, updated: 0, backend: settings.useBackend };
+}
+
+async function handleSearch(message, settings) {
+  const limit = Math.min(50, Math.max(1, Number(message.limit) || 10));
+  const [localHits, remoteHits] = await Promise.all([
+    local.search(message.query, { limit }),
+    settings.useBackend ? remote.search(message.query, { limit }) : [],
+  ]);
+  return { ok: true, hits: federate(localHits, remoteHits, { limit }).map(toWire) };
 }
 
 async function handleStatus() {
@@ -304,10 +332,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
           sendResponse(await handleStatus());
           break;
         case "search":
-          sendResponse({
-            ok: true,
-            hits: (await local.search(message.query, { limit: message.limit || 10 })).map(toWire),
-          });
+          sendResponse(await handleSearch(message, settings));
           break;
         case "mute":
           await markFired(message.key, true);
@@ -353,7 +378,14 @@ chrome.runtime.onStartup.addListener(() => bootstrapModel());
 // Settings can point the backend somewhere else at any time.
 chrome.storage.onChanged.addListener((changes, area) => {
   if (area !== "sync") return;
+  cache.clear();
   if (changes.serverUrl) remote.setBaseUrl(changes.serverUrl.newValue);
+  if (changes.useModel) modelGeneration += 1;
+  if (changes.useModel && !changes.useModel.newValue) {
+    embedder.demote();
+    local.setEmbedder(embedder);
+    chrome.alarms.clear(REEMBED_ALARM);
+  }
   if (changes.useModel && changes.useModel.newValue) bootstrapModel();
 });
 

@@ -121,6 +121,7 @@ export class FallbackEmbedder {
   /** Called once the model has been confirmed loadable. */
   promote() {
     this.usingModel = true;
+    this.lastError = "";
   }
 
   demote(error) {
@@ -128,23 +129,26 @@ export class FallbackEmbedder {
     this.lastError = String(error && error.message ? error.message : error || "");
   }
 
-  async embed(texts) {
-    if (!this.usingModel) return this.hash.embed(texts);
+  async embedWithSignature(texts, { query = false } = {}) {
+    const encoder = this.usingModel ? this.model : this.hash;
+    const run = async (backend) => ({
+      vectors: query ? [await backend.embedOne(texts[0])] : await backend.embed(texts),
+      signature: backend.signature,
+    });
     try {
-      return await this.model.embed(texts);
+      return await run(encoder);
     } catch (error) {
+      if (encoder === this.hash) throw error;
       this.demote(error);
-      return this.hash.embed(texts);
+      return run(this.hash);
     }
   }
 
+  async embed(texts) {
+    return (await this.embedWithSignature(texts)).vectors;
+  }
+
   async embedOne(text) {
-    if (!this.usingModel) return this.hash.embedOne(text);
-    try {
-      return await this.model.embedOne(text);
-    } catch (error) {
-      this.demote(error);
-      return this.hash.embedOne(text);
-    }
+    return (await this.embedWithSignature([text], { query: true })).vectors[0];
   }
 }

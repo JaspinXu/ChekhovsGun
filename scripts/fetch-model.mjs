@@ -38,7 +38,9 @@ const MODEL_FILES = [
 
 /** Vendored from node_modules so no CDN is involved at runtime. */
 const VENDOR_FILES = [
-  ["dist/transformers.web.min.js", "transformers.min.js"],
+  // The .web build externalises onnxruntime-* as bare imports; an unbundled
+  // extension needs the standalone browser build with those dependencies in it.
+  ["dist/transformers.min.js", "transformers.min.js"],
   ["dist/ort-wasm-simd-threaded.jsep.mjs", "ort-wasm-simd-threaded.jsep.mjs"],
   ["dist/ort-wasm-simd-threaded.jsep.wasm", "ort-wasm-simd-threaded.jsep.wasm"],
 ];

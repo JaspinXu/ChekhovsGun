@@ -18,30 +18,53 @@ file anything, you don't come back to a reading list. You click the save button 
 already going to click, and the thing comes back to you when it is useful.
 
 Videos and posts both, from platforms with an API and platforms without one. Everything
-runs locally; your bookmarks and your browsing never leave this machine.
+runs locally by default; optional backend integrations are described below.
+
+![Chrome Extension](https://img.shields.io/badge/Chrome%20Extension-Manifest%20V3-4285F4?logo=googlechrome&logoColor=white)
+![JavaScript](https://img.shields.io/badge/Retrieval%20core-JavaScript-F7DF1E?logo=javascript&logoColor=black)
+![IndexedDB](https://img.shields.io/badge/Local%20storage-IndexedDB-5A29E4)
+![Python](https://img.shields.io/badge/Optional%20backend-Python%203.10+-3776AB?logo=python&logoColor=white)
+![SQLite](https://img.shields.io/badge/Backend%20index-SQLite-003B57?logo=sqlite&logoColor=white)
+![License](https://img.shields.io/badge/License-MIT-blue)
+
+> The extension is the whole product: no Python, no server, no API key, and capture,
+> indexing and retrieval all happen inside the browser. The optional Python backend only
+> adds local Whisper transcription, bulk sync through platform APIs, and body fetching
+> for scanned links. Cards stay quiet until the library holds 15 saves,
+> which is deliberate; searching on purpose works from the very first one.
+
+[Install in 30 seconds](#install-it-in-30-seconds) · [Highlights](#highlights) · [How it works](#how-it-works) · [Semantic search](#turn-on-semantic-search) · [Optional backend](#the-optional-python-backend) · [Command line](#command-line) · [Known limitations](#known-limitations)
+
+---
+
+## Highlights
+
+- **Bookmarking is the only step:** click the site's own save button and that page is in. Nothing to export, nothing to file, no reading list to revisit.
+- **It finds you while you scroll:** the extension recognizes the page you're on and pops a card on a hit — a video seeks to the second that covers it, a post scrolls to and highlights the passage that does.
+- **Take in the backlog at once:** a one-click scan collects links loaded while scrolling a favourites page. Standalone mode initially stores titles and links.
+- **Hybrid retrieval:** a BM25 inverted index and vector recall run side by side, fused by rank with RRF, with a separate confidence score deciding whether this is worth interrupting you at all.
+- **Mixed Chinese/English retrieval:** CJK character bigrams shared by both retrieval paths; optional multilingual-e5-small adds semantic vectors. Pure cross-language results can still be filtered by the confidence gate.
+- **Four content sources:** subtitles (Bilibili CC and AI tracks, YouTube player tracks), top comments, local Whisper transcription as a fallback, and heuristic article extraction for posts.
+- **The life of a save:** active, digested or muted. The digested rate — not the number of popups — is the success metric, and a re-sync never overwrites your own marks.
+- **Local by default:** saves and retrieval stay on-device. Optional platform sync and remote AI providers use network requests; no telemetry.
+- **Extensible site recipes:** Zhihu, Xiaohongshu, WeChat articles, Weibo, Juejin, CSDN, Jianshu, Reddit, X, Stack Overflow, Medium, YouTube and Bilibili ship built in; a new site is one entry in `extension/recipes.js`.
 
 ---
 
 ## How it works
 
-```
-        you click 「收藏」
-               │
-               ▼
-     ┌───────────────────┐        ┌──────────────────────┐
-     │  extension reads  │ ─────▶ │  chunks + vectors    │
-     │  the page you're  │        │  + BM25 index        │
-     │  looking at       │        │  IndexedDB, local    │
-     └───────────────────┘        └──────────┬───────────┘
-                                             │ hybrid retrieval
-     ┌───────────────────┐                   │
-     │ optional backend  │ ─ ─ merged (RRF) ─┤
-     │ Whisper · YT/B站  │                   │
-     └───────────────────┘                   ▼
-                                   ┌──────────────────────┐
-     while you scroll ────────────▶│  card: you saved     │
-                                   │  this + a short read │
-                                   └──────────────────────┘
+```mermaid
+flowchart LR
+    Save["you click Save"] --> Ext["extension reads the page you're on"]
+    Ext --> Index["chunks · vectors · BM25 index<br/>IndexedDB, local"]
+    Backend["optional backend retrieval<br/>Whisper · YouTube / Bilibili APIs"] -.-> Merge["result-level RRF fusion"]
+    Scroll["you scroll onto something related"] --> Hybrid["hybrid retrieval + RRF"]
+    Index --> Hybrid
+    Hybrid --> Merge
+    Merge --> Conf{"confident enough"}
+    Conf -->|"yes"| Card["card: you saved this<br/>+ a short read"]
+    Conf -->|"no"| Quiet["stay quiet"]
+    Card --> Done["mark digested, never asked again"]
 ```
 
 1. **Take things in**, two ways that meet in the same place:
@@ -63,6 +86,17 @@ runs locally; your bookmarks and your browsing never leave this machine.
    the exact paragraph of a post.
 5. **Close the loop** — When you've read it, hit "学完了" and it stops bothering you.
    That number — not the number of popups — is this project's success metric.
+
+The division of labour:
+
+| Layer | Technology and responsibility |
+| --- | --- |
+| Extension | Chrome / Edge Manifest V3; per-site capture recipes, generic article extraction, cards and options page |
+| Retrieval core | Dependency-free JavaScript (`extension/core/`); tokenization, chunking, BM25, vectors, RRF, confidence |
+| Extension storage | IndexedDB — items, chunks and vectors all stay in the browser profile |
+| Semantic model | Optional local multilingual-e5-small (int8), run in-browser by transformers.js |
+| Optional backend | Python 3.10+, FastAPI, SQLite; bound to `127.0.0.1` only |
+| What the backend adds | faster-whisper local transcription, YouTube Data API and Bilibili favourites sync |
 
 ---
 
@@ -92,7 +126,7 @@ against a local IndexedDB that never leaves your machine.
 
 The card stays quiet until your library holds 15 saves. That is deliberate, not a bug —
 see [The popup waits until it can be trusted](#the-popup-waits-until-it-can-be-trusted).
-The popup tells you how many more you need, and explicit search works from save one.
+The popup tells you how many more you need. Open the extension icon and use the search box to search from save one.
 
 > Some sites use one button for both saving and un-saving. Where the control exposes its
 > state we read it; where it doesn't, a click is treated as a save.
@@ -109,10 +143,11 @@ Out of the box the extension retrieves with BM25 plus a hashed embedder — no d
 works offline, good at exact terms. What it cannot do is match *across languages*: a
 Chinese question will not find the English talk that answers it.
 
-A ~120MB on-device encoder fixes that. It is not committed to the repo, so fetch it once:
+A ~120MB on-device encoder adds semantic vectors, although the lexical confidence gate can still filter pure cross-language matches. It is not committed to the repo, so fetch it once:
 
 ```bash
-npm install          # dev dependency for the fetch script
+npm ci
+npm install --no-save @huggingface/transformers@3.7.2  # optional model runtime
 npm run fetch-model  # vendors transformers.js + downloads multilingual-e5-small (int8)
 ```
 
@@ -127,9 +162,9 @@ anywhere.
 
 ## The optional Python backend
 
-The extension is complete on its own. The Python side adds the two things a browser
-genuinely cannot do:
+The extension works independently. The optional Python backend adds:
 
+- **Body hydration** for supported links captured by folder scans
 - **Whisper transcription** for videos with no subtitle track
 - **Bulk sync** of YouTube playlists / Liked / Watch Later and Bilibili favourite folders
   through their APIs, with subtitles and top comments
@@ -190,9 +225,8 @@ few:
 export CHEKHOVSGUN_BILIBILI_FOLDERS="deep-learning,backend"   # folder names or media_ids
 ```
 
-> SESSDATA lasts about a month; just copy a fresh one when it expires.
-> It only ever lives in your own environment variables or `config.toml` — it is never
-> sent anywhere.
+> Store SESSDATA in your environment variables or `config.toml` and refresh it when it expires.
+> The backend sends it to Bilibili as a cookie for authenticated requests.
 
 ### YouTube
 
@@ -460,9 +494,10 @@ export CHEKHOVSGUN_LLM_BASE_URL=            # any OpenAI-compatible endpoint
 | Backend config | `config.toml` in the same directory, or environment variables (see `.env.example`) |
 | Credentials | Only in your environment variables / config file; always masked in API responses |
 
-The extension makes no network requests at all unless you switch the backend on, and
-then only to `127.0.0.1`. The server binds `127.0.0.1` only. No telemetry, no outbound
-reporting.
+Capture and retrieval run locally by default. The optional backend listens on
+`127.0.0.1`; platform sync contacts the relevant platforms. If you configure remote
+embedding or LLM providers, their requests send text to those providers. Extension
+preferences use browser sync storage; saved content stays in local IndexedDB. No telemetry.
 
 ---
 
@@ -518,6 +553,10 @@ it's still the full CLI (`ChekhovsGun.exe ingest --source bilibili`), so one bin
 both. Pushing a tag has CI build artifacts for all three platforms plus the extension zip.
 
 ## Known limitations
+
+- Standalone video capture stores titles and descriptions; subtitles, top comments and Whisper transcripts come from optional backend sync.
+- Folder scanning may miss paginated or virtualized entries. Standalone mode does not fetch article bodies in the background.
+- Even with the semantic model, the lexical confidence gate can suppress pure cross-language or paraphrase matches.
 
 - Until you run `npm run fetch-model`, the extension retrieves with BM25 plus a hashed
   encoder, which has no real semantics — cross-language and paraphrase matching need the

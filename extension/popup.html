@@ -5,8 +5,10 @@
 <title>ChekhovsGun</title>
 <style>
   :root { color-scheme: light dark; }
+  [hidden] { display: none !important; }
+  * { box-sizing: border-box; }
   body {
-    width: 296px; margin: 0; padding: 15px;
+    width: 340px; margin: 0; padding: 15px;
     font: 13.5px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
     background: #14171f; color: #e9ebf1;
   }
@@ -52,6 +54,19 @@
   .links { display: flex; gap: 14px; margin-top: 13px; font-size: 12px; }
   .links a { color: #e0a458; text-decoration: none; }
   .links a:hover { text-decoration: underline; }
+  .search { margin-top: 14px; }
+  .search label { display: block; font-size: 12px; margin-bottom: 6px; }
+  .search-row { display: flex; gap: 6px; }
+  .search input { min-width: 0; flex: 1; padding: 8px; border-radius: 8px; font: inherit;
+    border: 1px solid #7777; background: transparent; color: inherit; }
+  .search button { border: 0; border-radius: 8px; padding: 8px 12px;
+    background: #e0a458; color: #17130c; cursor: pointer; }
+  #search-state { font-size: 12px; opacity: .7; margin: 7px 0; }
+  #search-results { max-height: 250px; overflow-y: auto; }
+  .result { padding: 10px 0; border-top: 1px solid #8884; }
+  .result a { color: inherit; font-weight: 600; text-decoration: none; }
+  .result a:hover { color: #e0a458; }
+  .result p { margin: 5px 0 0; font-size: 12px; opacity: .7; }
 </style>
 </head>
 <body>
@@ -70,6 +85,16 @@
   </div>
 
   <div class="note" id="note">正在读取本地索引…</div>
+
+  <form class="search" id="search-form" role="search">
+    <label for="search-query">搜索你的收藏</label>
+    <div class="search-row">
+      <input type="search" id="search-query" placeholder="试试 BM25、分块策略…" maxlength="1000" required />
+      <button type="submit">搜索</button>
+    </div>
+  </form>
+  <p id="search-state" role="status" aria-live="polite">从第一条收藏起就能搜索</p>
+  <div id="search-results" aria-label="搜索结果"></div>
 
   <div class="rows">
     <div class="row"><label for="enabled">刷到相关内容时提醒我</label><input type="checkbox" id="enabled" /></div>

@@ -1,5 +1,60 @@
 # 架构
 
+## 产品边界与入口
+
+ChekhovsGun 的目标是让已经收藏的知识在相关浏览场景中重新出现。自动提醒需要
+足够大的收藏库和足够可靠的命中；主动搜索不受 15 条收藏门槛限制。
+
+**浏览器扩展是默认运行入口。** 它独立完成页面采集、分块、索引和搜索，数据保存在
+IndexedDB。Python 服务是可选的增强层，提供平台 API 同步、字幕／评论、Whisper
+转写、链接正文抓取，以及 CLI 和仪表盘。两边保存各自的库，不做双向数据同步。
+
+```mermaid
+flowchart LR
+    Page[站点页面 / 收藏夹] --> Reader[recipes.js + content.js]
+    Popup[工具栏保存 / 搜索] --> Worker[background.js]
+    Reader --> Worker
+    Worker --> Local[LocalEngine]
+    Local --> Core[纯 JavaScript 检索核心]
+    Local --> DB[(IndexedDB)]
+    Local --> Encoder[offscreen 本地模型 / 哈希回退]
+    Worker -. 可选 .-> Remote[RemoteEngine]
+    Remote --> API[FastAPI + Engine]
+    API --> SQL[(SQLite)]
+    API --> Pipeline[IngestPipeline + adapters / Whisper]
+    Local --> Merge[结果层 RRF 去重]
+    Remote --> Merge
+    Merge --> UI[提醒卡片 / 主动搜索结果]
+```
+
+| 目录 / 文件 | 职责 |
+| --- | --- |
+| `extension/core/` | 无 DOM、Chrome API 或网络依赖的分词、分块、身份、BM25、向量与置信度 |
+| `extension/platform/idb.js` | 条目、片段、向量、事件的持久化；修订号驱动内存索引失效 |
+| `extension/engine/` | 异步编码、存储与检索装配，后端失败降级，以及结果融合 |
+| `extension/background.js` | 消息路由、页面身份补全、提醒冷却、配置和模型重建调度 |
+| `extension/recipes.js` / `content.js` | 已登录页面的 DOM 抽取、收藏按钮、收藏夹扫描、提醒卡片 |
+| `extension/popup.*` / `options.*` | 手动采集、主动搜索、状态解释和设置 |
+| `extension/offscreen.*` | 持有浏览器内语义模型，避免 service worker 重启时重复载入 |
+| `chekhovsgun/` | 可选的 Python 服务、命令行、同步及检索实现（下表详述） |
+| `scripts/` / `.github/workflows/` | 跨语言 fixtures、模型准备、打包和 CI / Release |
+
+## 需要保持的不变量
+
+- 页面上下文可以只有 URL 和站点名；进入缓存、冷却和检索前要补齐 `source_id`，
+  否则同站不同页面会共用一个键，还会把当前页面推荐给自身。
+- 身份归一化用于去重，打开原文使用采集到的可导航 URL；不能为了去重把 HTTP 页面改成 HTTPS。
+- 两个引擎只融合结果，不能比较两边的向量。融合优先使用稳定条目 ID，缺失时才用 URL；
+  视频 ID 和 URL 路径大小写必须保留。
+- 每次编码结果携带实际编码器签名。并发模型失败、开关切换或批量重建不能把神经向量
+  标成哈希向量。不同空间的片段仍参与 BM25，第一次失败的查询也必须可降级。
+- 模型加载跨越异步操作，启动代次确保旧加载任务不会覆盖用户后来关闭模型的选择。
+- 收藏夹扫描默认只保存链接和标题。后端启用时通过 `/api/capture/batch` 尝试转发并补正文；
+  后端不可用时保留本地结果，当前没有持久化转发重试队列。
+- `npm run build` 和 Release 共用打包脚本，只压缩过滤后的文件集合，每次生成全新的 ZIP。
+
+## Python 模块
+
 ```
 chekhovsgun/
 ├── models.py          SavedItem / Chunk / Hit / ItemHit / Context
@@ -59,10 +114,10 @@ packaging/             PyInstaller 入口与图标
 `run()` 取完 adapter 的内容后调它，`/api/capture` 内容本来就在手里所以直接调它。
 下游因此完全不需要知道一条收藏是同步来的还是采集来的。
 
-**站点知识分两处，各管各的，不需要同步机制。** DOM 探针只能在扩展里
-（`extension/recipes.js`），URL 归一化只能在服务端（`chekhovsgun/sites.py`，
-`relate_url` 和去重都要用）。两边唯一重叠的是 source 名字那个字符串，
-而采集请求本来就带着它，所以不存在需要保持一致的第二份数据。
+**DOM 规则与 URL 身份分离。** DOM 探针在 `extension/recipes.js`；URL 身份分别由
+`extension/core/sites.js` 和 Python 的 `sites.py` / adapters 实现。
+`scripts/gen_fixtures.py` 从 Python 生成身份、分块和打分样例，JavaScript 测试校验兼容性；
+CI 重新生成并检查差异，避免端间 ID 漂移。
 
 **内容哈希对帖子和视频不对称。** `content_hash()` 把正文算进帖子的哈希，
 但不算进视频的。原因在于正文从哪来：视频的字幕是在哈希比对**之后**才去取的——

@@ -325,7 +325,8 @@
     const known = (result?.skipped || 0) + (result?.updated || 0);
     toast(
       `收进来 ${added} 条`,
-      `${known ? `${known} 条已经有了 · ` : ""}正文在后台慢慢抓，可以关掉这个页面`,
+      `${known ? `${known} 条已经有了 · ` : ""}${result?.failed ? `${result.failed} 条未能保存 · ` : ""}` +
+        (result?.backend ? "已尝试交给本地服务补正文" : "已保存链接和标题；打开原文后再次收藏可补全文"),
       { ms: 6000 }
     );
   }
@@ -408,7 +409,7 @@
     });
     shadow.getElementById("close").addEventListener("click", dismiss);
     shadow.getElementById("mute").addEventListener("click", () => {
-      chrome.runtime.sendMessage({ type: "mute", key: `${context.source}:${context.source_id}` });
+      chrome.runtime.sendMessage({ type: "mute", key: result.contextKey || `${context.source}:${context.source_id}` });
       dismiss();
     });
     // Marking something learned is the only action here that means the product

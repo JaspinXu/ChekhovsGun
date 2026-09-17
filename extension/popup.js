@@ -18,7 +18,10 @@
   const $ = (id) => document.getElementById(id);
 
   const send = (message) =>
-    new Promise((resolve) => chrome.runtime.sendMessage(message, (r) => resolve(r || {})));
+    new Promise((resolve) => chrome.runtime.sendMessage(message, (r) => {
+      const error = chrome.runtime.lastError;
+      resolve(error ? { ok: false, error: error.message } : r || { ok: false });
+    }));
 
   const tabMessage = (tabId, message) =>
     new Promise((resolve) => {
@@ -53,6 +56,7 @@
   // ------------------------------------------------------------- saving
   /** Read the page, whether or not a content script is already running there. */
   async function readActivePage() {
+    if (!tab?.id || !/^https?:\/\//.test(tab.url || "")) return null;
     const viaContentScript = await tabMessage(tab.id, { type: "peek" });
     if (viaContentScript?.page) return viaContentScript;
 
@@ -63,14 +67,14 @@
         files: ["recipes.js"],
       });
       if (injected === undefined) return null;
+      const [result] = await chrome.scripting.executeScript({
+        target: { tabId: tab.id },
+        func: () => self.ChekhovsGunRecipes.readPage(),
+      });
+      return result?.result ? { page: result.result, canScan: false } : null;
     } catch (error) {
       return null;
     }
-    const [result] = await chrome.scripting.executeScript({
-      target: { tabId: tab.id },
-      func: () => self.ChekhovsGunRecipes.readPage(),
-    });
-    return result?.result ? { page: result.result, canScan: false } : null;
   }
 
   const peek = await readActivePage();
@@ -105,6 +109,49 @@
   });
 
   // ------------------------------------------------------------- state
+  let searchVersion = 0;
+  $("search-query").addEventListener("input", () => {
+    searchVersion += 1;
+    $("search-results").replaceChildren();
+    $("search-state").textContent = $("search-query").value.trim()
+      ? "按回车搜索" : "从第一条收藏起就能搜索";
+  });
+  $("search-form").addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const query = $("search-query").value.trim();
+    if (!query) return;
+    const version = ++searchVersion;
+    $("search-state").textContent = "正在搜索…";
+    $("search-results").replaceChildren();
+    const result = await send({ type: "search", query, limit: 5 });
+    if (version !== searchVersion) return;
+    if (!result.ok) {
+      $("search-state").textContent = result.error || "搜索失败，请重试";
+      return;
+    }
+    const hits = result.hits || [];
+    $("search-state").textContent = hits.length ? `找到 ${hits.length} 条相关收藏` : "没有找到相关收藏，试试更具体的关键词";
+    for (const hit of hits) {
+      const article = document.createElement("article");
+      article.className = "result";
+      const link = document.createElement("a");
+      const url = hit.deep_link || hit.item.url;
+      if (!/^https?:\/\//i.test(url)) continue;
+      link.href = url;
+      link.target = "_blank";
+      link.rel = "noopener noreferrer";
+      link.textContent = hit.item.title || "未命名收藏";
+      article.append(link);
+      const quote = (hit.chunks || []).find((chunk) => chunk.kind !== "title");
+      if (quote) {
+        const excerpt = document.createElement("p");
+        excerpt.textContent = quote.text.slice(0, 160);
+        article.append(excerpt);
+      }
+      $("search-results").append(article);
+    }
+  });
+
   async function refresh() {
     const result = await send({ type: "status" });
     if (!result.ok) {

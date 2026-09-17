@@ -58,14 +58,17 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Zip the unpacked extension
-        run: |
-          cd extension
-          zip -r ../chekhovsgun-extension.zip . -x '*.DS_Store'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - run: npm ci
+      - run: npm test
+      - name: Package the extension
+        run: npm run build
       - uses: actions/upload-artifact@v4
         with:
           name: chekhovsgun-extension
-          path: chekhovsgun-extension.zip
+          path: dist/*.zip
 
   publish:
     needs: [build, extension]

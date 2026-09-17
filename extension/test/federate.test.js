@@ -81,3 +81,23 @@ test("items with no URL still merge on their id", () => {
   const remote = [{ item: { id: "youtube:v1", url: "" }, chunks: [], confidence: 0.6 }];
   assert.equal(federate(local, remote).length, 1);
 });
+
+test("case-sensitive video IDs are not collapsed into a single save", () => {
+  const merged = federate(
+    [hit("youtube:Abcdefghijk", "https://youtube.com/watch?v=Abcdefghijk")],
+    [hit("youtube:abcdefghijk", "https://youtube.com/watch?v=abcdefghijk")]
+  );
+  assert.equal(merged.length, 2);
+});
+
+test("stable item IDs deduplicate short and watch URLs", () => {
+  const merged = federate(
+    [hit("youtube:abcdefghijk", "https://youtu.be/abcdefghijk")],
+    [hit("youtube:abcdefghijk", "https://youtube.com/watch?v=abcdefghijk&t=12")]
+  );
+  assert.equal(merged.length, 1);
+});
+
+test("a backend-only result keeps its origin", () => {
+  assert.deepEqual(federate([], [hit("a", "https://x/a")])[0].origins, ["remote"]);
+});

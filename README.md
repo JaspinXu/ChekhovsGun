@@ -18,28 +18,50 @@
 视频和帖子都收，有 API 的平台和没 API 的平台都收。全部在本地运行，
 收藏夹和浏览记录不会离开这台机器。
 
+![Chrome Extension](https://img.shields.io/badge/Chrome%20Extension-Manifest%20V3-4285F4?logo=googlechrome&logoColor=white)
+![JavaScript](https://img.shields.io/badge/%E6%A3%80%E7%B4%A2%E5%86%85%E6%A0%B8-JavaScript-F7DF1E?logo=javascript&logoColor=black)
+![IndexedDB](https://img.shields.io/badge/%E6%9C%AC%E5%9C%B0%E5%AD%98%E5%82%A8-IndexedDB-5A29E4)
+![Python](https://img.shields.io/badge/%E5%8F%AF%E9%80%89%E5%90%8E%E7%AB%AF-Python%203.10+-3776AB?logo=python&logoColor=white)
+![SQLite](https://img.shields.io/badge/%E5%90%8E%E7%AB%AF%E7%B4%A2%E5%BC%95-SQLite-003B57?logo=sqlite&logoColor=white)
+![License](https://img.shields.io/badge/License-MIT-blue)
+
+> 装一个扩展就能完整使用：不需要 Python，不需要服务端，不需要任何 API key，
+> 采集、建索引、检索全部在浏览器里完成。可选的 Python 后端补充本地 Whisper 转写、
+> 平台 API 批量同步和扫描链接的正文抓取。藏书满 15 条之后卡片才会开始弹，
+> 这是故意的；主动搜索从第一条收藏起就能用：点击扩展图标，在「搜索你的收藏」里输入关键词。
+
+[30 秒装好](#30-秒装好) · [功能亮点](#功能亮点) · [它是怎么工作的](#它是怎么工作的) · [打开语义检索](#打开语义检索) · [可选的 Python 后端](#可选的-python-后端) · [命令行](#命令行) · [已知限制](#已知限制)
+
+---
+
+## 功能亮点
+
+- **只需要收藏：** 点网站自己的收藏按钮，这一页就进来了。不用导出，不用整理，不用回头翻清单。
+- **刷到就提醒：** 扩展识别你当前在看的页面，命中就弹一张卡片——视频跳到讲这件事的那一秒，帖子滚动到并高亮出讲这件事的那一段。
+- **存量一次收完：** 收藏夹页面上的一键扫描会自动往下翻完整个收藏夹，收集当前列表滚动加载出的链接；独立模式先存标题和链接。
+- **混合检索：** BM25 倒排与向量召回并行，RRF 按排名融合，再由一个独立的置信度决定「到底要不要打扰你」。
+- **中英混合检索：** CJK 字符二元组分词，向量与 BM25 共用同一套；可选的本地 multilingual-e5-small 提供语义向量，纯跨语言召回仍受置信度门槛限制。
+- **四个内容源：** 字幕（B 站 CC 与 AI 字幕、YouTube 播放器轨）、高赞评论、本地 Whisper 转写兜底，以及网页正文的启发式抽取。
+- **收藏的一生：** 还欠着 / 已学完 / 已静音三个状态。学完率而不是弹出次数才是成功指标，重新同步永远不会覆盖你的标记。
+- **默认本地：** 收藏与检索在设备上完成；可选的平台同步和远程 AI 服务会发起网络请求。没有遥测。
+- **站点规则可扩展：** 知乎、小红书、公众号、微博、掘金、CSDN、简书、Reddit、X、Stack Overflow、Medium、YouTube、B 站已内置；加一个新站点只要在 `extension/recipes.js` 里加一条记录。
+
 ---
 
 ## 它是怎么工作的
 
-```
-        你点了「收藏」
-               │
-               ▼
-     ┌───────────────────┐        ┌──────────────────────┐
-     │  扩展读取你当前    │ ─────▶ │  分块 + 向量         │
-     │  在看的这个页面    │        │  + BM25 倒排         │
-     │                   │        │  IndexedDB · 本地    │
-     └───────────────────┘        └──────────┬───────────┘
-                                             │ 混合检索
-     ┌───────────────────┐                   │
-     │ 可选的后端：      │ ─ ─ RRF 融合 ─ ─ ─┤
-     │ Whisper·YT/B站 API│                   │
-     └───────────────────┘                   ▼
-                                   ┌──────────────────────┐
-     刷到相关内容 ────────────────▶│  弹卡片：你收藏过    │
-                                   │  + 一段原文          │
-                                   └──────────────────────┘
+```mermaid
+flowchart LR
+    Save["你点了「收藏」"] --> Ext["扩展读取你当前在看的页面"]
+    Ext --> Index["分块 · 向量 · BM25 倒排<br/>IndexedDB 本地"]
+    Backend["可选后端独立检索<br/>Whisper · YouTube / B 站 API"] -.-> Merge["结果层 RRF 融合"]
+    Scroll["刷到相关内容"] --> Hybrid["混合检索 + RRF 融合"]
+    Index --> Hybrid
+    Hybrid --> Merge
+    Merge --> Conf{"置信度够不够"}
+    Conf -->|"够"| Card["弹出卡片<br/>你收藏过 + 一段原文"]
+    Conf -->|"不够"| Quiet["保持安静"]
+    Card --> Done["点「学完了」，不再打扰"]
 ```
 
 1. **收进来**，两条路最后汇到同一个地方：
@@ -55,6 +77,17 @@
    那一秒，帖子滚动到并高亮出讲这件事的那一段。
 5. **收口** — 看完了点一下「学完了」，它就不会再来烦你。
    这个数字（而不是弹出次数）才是这个项目的成功指标。
+
+分工大致是这样：
+
+| 层级 | 技术与职责 |
+| --- | --- |
+| 扩展 | Chrome / Edge Manifest V3；站点规则采集、通用正文抽取、卡片与选项页 |
+| 检索核心 | 零依赖 JavaScript（`extension/core/`）；分词、分块、BM25、向量、RRF、置信度 |
+| 扩展存储 | IndexedDB，条目与分块与向量都留在浏览器 profile 里 |
+| 语义模型 | 可选的本地 multilingual-e5-small（int8），由 transformers.js 在浏览器内运行 |
+| 可选后端 | Python 3.10+、FastAPI、SQLite；只监听 `127.0.0.1` |
+| 后端补的能力 | faster-whisper 本地转写，YouTube Data API 与 B 站收藏夹批量同步 |
 
 ---
 
@@ -82,7 +115,7 @@
 
 **收藏不满 15 条之前卡片不会弹**。这是故意的，不是坏了——原因见
 [收藏太少时它不会弹](#收藏太少时它不会弹)。弹窗里会告诉你还差几条，
-而主动搜索从第一条收藏起就能用。
+而主动搜索从第一条收藏起就能用：点击扩展图标，在「搜索你的收藏」里输入关键词。
 
 > 有些网站收藏和取消收藏是同一个按钮。控件自己暴露了状态的，我们按状态判断；
 > 判断不出来的，按「收藏」处理。
@@ -98,10 +131,11 @@
 开箱状态下，扩展用的是 BM25 加一个哈希向量：不用下载、完全离线、对精确术语很准。
 它做不到的是**跨语言**——中文问题找不到回答它的那个英文视频。
 
-一个约 120MB 的本地模型可以补上这一块。它没有提交进仓库，需要拉一次：
+一个约 120MB 的本地模型可以提供语义向量，但纯跨语言命中仍可能被词面覆盖率门槛过滤。它没有提交进仓库，需要拉一次：
 
 ```bash
-npm install          # 拉取脚本要用的开发依赖
+npm ci
+npm install --no-save @huggingface/transformers@3.7.2  # 可选模型运行库
 npm run fetch-model  # 内置 transformers.js + 下载 multilingual-e5-small（int8 量化）
 ```
 
@@ -115,8 +149,9 @@ npm run fetch-model  # 内置 transformers.js + 下载 multilingual-e5-small（i
 
 ## 可选的 Python 后端
 
-扩展本身已经是完整的。Python 那边补的是浏览器真的做不到的两件事：
+扩展可以独立使用。Python 后端提供这些额外能力：
 
+- **链接正文补全**，尝试抓取收藏夹扫描得到的链接；登录墙或动态页面可能抓不到
 - **Whisper 本地转写**，给没有字幕轨的视频用
 - **批量同步** YouTube 播放列表 / Liked / 稍后再看，以及 B 站收藏夹，
   通过它们的 API 连字幕和热评一起拿
@@ -174,8 +209,8 @@ chekhovsgun ingest --source bilibili              # 全量同步
 export CHEKHOVSGUN_BILIBILI_FOLDERS="深度学习,后端"   # 收藏夹名或 media_id
 ```
 
-> SESSDATA 有效期约一个月，过期后重新复制一次即可。
-> 它只保存在你自己的环境变量或 `config.toml` 里，不会发到任何地方。
+> SESSDATA 保存在你自己的环境变量或 `config.toml` 中，失效后需要更新。
+> 后端会将它作为 Cookie 发给 Bilibili，用于需要登录的请求。
 
 ### YouTube
 
@@ -419,8 +454,9 @@ export CHEKHOVSGUN_LLM_BASE_URL=            # 任何 OpenAI 兼容端点
 | 后端配置 | 同目录下的 `config.toml`，或环境变量（见 `.env.example`） |
 | 凭据 | 只在你的环境变量/配置文件里；API 返回时一律打码 |
 
-不打开后端的话，扩展不发起任何网络请求；打开之后也只访问 `127.0.0.1`。
-服务只监听 `127.0.0.1`。没有遥测，没有外部上报。
+默认采集与检索在本地运行。可选后端监听 `127.0.0.1`；平台同步会访问对应平台。
+若配置远程 embedding 或 LLM 服务，请求会向服务商发送文本。扩展偏好设置使用浏览器
+同步存储，收藏正文保存在本地 IndexedDB。没有遥测。
 
 ---
 
@@ -477,7 +513,9 @@ pyinstaller chekhovsgun.spec        # → dist/ChekhovsGun(.exe)
 ## 已知限制
 
 - 在你跑 `npm run fetch-model` 之前，扩展用的是 BM25 加哈希编码器，没有真正的语义；
-  跨语言和同义改写这类场景需要那个本地模型。
+  本地模型提供语义向量，但纯跨语言和同义改写仍可能被置信度门槛过滤。
+- 扩展直接采集视频时保存标题和简介；字幕、热评和 Whisper 转写来自可选后端同步。
+- 收藏夹扫描只覆盖已加载的列表，分页、虚拟列表或站点限流可能使扫描不完整；独立模式不会后台抓正文。
 - B 站 SESSDATA 约一个月过期；YouTube OAuth token 一小时过期，长期同步需要自己刷新。
 - Whisper 兜底需要本机有 ffmpeg，且是 CPU 密集的；第一次运行会下载模型。
 - YouTube 评论走 Data API，关闭评论的视频返回 403，这是正常的，会跳过。

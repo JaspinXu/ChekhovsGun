@@ -238,12 +238,14 @@ def create_app(config: Config | None = None, engine: Engine | None = None) -> Fa
                 fetch_missing=request.fetch,
             )
         context = request.to_context()
-        if not context.source and request.url:
+        if request.url and (not context.source or not context.source_id):
             from ..adapters import identify_url
 
             # identify_url, not detect_source: a post page has no adapter, and
             # refusing to name it would make the popup impossible there.
-            context.source, context.source_id, _ = identify_url(request.url)
+            source, source_id, _ = identify_url(request.url)
+            context.source = context.source or source
+            context.source_id = context.source_id or source_id
         return engine.relate(context, limit=request.limit, explain=request.explain)
 
     @app.get("/api/relate")

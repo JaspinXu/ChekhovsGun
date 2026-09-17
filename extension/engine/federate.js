@@ -35,7 +35,7 @@ export function canonicalUrl(url) {
     parsed.hash = "";
     parsed.hostname = parsed.hostname.replace(/^(www|m)\./i, "");
     let path = parsed.pathname.replace(/\/+$/, "");
-    return `${parsed.protocol}//${parsed.hostname}${path}${parsed.search}`.toLowerCase();
+    return `${parsed.protocol}//${parsed.host}${path}${parsed.search}`;
   } catch {
     return String(url).trim().toLowerCase();
   }
@@ -47,7 +47,7 @@ function identityOf(hit) {
   const url = canonicalUrl(hit.item && hit.item.url);
   // Prefer the item id: it is `source:source_id` on both sides, so an item the
   // adapters synced and the same item captured in the browser collide on it.
-  return url || id || JSON.stringify(hit.item);
+  return id || url || JSON.stringify(hit.item);
 }
 
 /**
@@ -69,9 +69,8 @@ function preferred(a, b) {
  * @param {{limit?: number}} options
  */
 export function federate(local, remote, { limit = 5 } = {}) {
-  const lists = [local || [], remote || []].filter((l) => l.length);
-  if (!lists.length) return [];
-  if (lists.length === 1) return lists[0].slice(0, limit);
+  const lists = [local || [], remote || []];
+  if (!lists[1].length) return lists[0].slice(0, limit);
 
   const fused = new Map();
   const byKey = new Map();

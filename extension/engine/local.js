@@ -37,21 +37,23 @@ export class LocalEngine {
     this._index = null; // the vector matrix is now for the wrong space
   }
 
-  async index() {
+  async index(signature = this.embedder.signature) {
     if (
       this._index &&
       this._indexRevision === this.store.revision &&
-      this._indexSignature === this.embedder.signature
+      this._indexSignature === signature
     ) {
       return this._index;
     }
+    const revision = this.store.revision;
     const [items, chunks] = await Promise.all([
       this.store.allItems(),
       this.store.allChunks(),
     ]);
-    this._index = new MemoryIndex(items, chunks, this.embedder.signature);
-    this._indexRevision = this.store.revision;
-    this._indexSignature = this.embedder.signature;
+    this._index = new MemoryIndex(items, chunks, signature);
+    // A write during the read must force the next query to refresh this view.
+    this._indexRevision = revision;
+    this._indexSignature = signature;
     return this._index;
   }
 
@@ -63,9 +65,19 @@ export class LocalEngine {
    * ranking path free of promises.
    */
   async _retrieverFor(query) {
-    const index = await this.index();
-    const vector = await this.embedder.embedOne(query);
+    const { vectors: [vector], signature } = await this._embed([query], true);
+    // Embedding can demote the model. Build the view for the resulting space,
+    // so this very query receives lexical fallback for the model's old rows.
+    const index = await this.index(signature);
     return new Retriever(index, { embedOne: () => vector }, this.config);
+  }
+
+  async _embed(texts, query = false) {
+    const encoder = this.embedder;
+    if (encoder.embedWithSignature) return encoder.embedWithSignature(texts, { query });
+    const signature = encoder.signature;
+    const vectors = query ? [await encoder.embedOne(texts[0])] : await encoder.embed(texts);
+    return { vectors, signature };
   }
 
   async search(query, { limit = null } = {}) {
@@ -110,14 +122,14 @@ export class LocalEngine {
     const segments = segmentsOf(capture);
     const chunks = chunkItem(item, segments, this.config, capture.comments || []);
 
-    const vectors = await this.embedder.embed(chunks.map((c) => c.text));
+    const { vectors, signature } = await this._embed(chunks.map((c) => c.text));
     const rows = chunks.map((chunk, i) => ({
       ...chunk,
       // Computed once here because tokenising the candidate set on every query
       // was the single largest cost in the Python hot path.
       tokens: tokenize(chunk.text),
       vector: vectors[i],
-      embedder: this.embedder.signature,
+      embedder: signature,
     }));
 
     const stored = await this.store.replaceItem(
@@ -143,7 +155,8 @@ export class LocalEngine {
   }
 
   async has(url) {
-    return Boolean(await this.store.findItemByUrl(url));
+    const identity = await identifyUrl(url);
+    return Boolean(await this.store.getItem(makeItemId(identity.source, identity.sourceId)));
   }
 
   async stats() {
@@ -167,16 +180,25 @@ export class LocalEngine {
   async reembedBatch(size = 64) {
     const stale = await this.store.chunksNeedingEmbedding(this.embedder.signature, size);
     if (!stale.length) return 0;
-    const vectors = await this.embedder.embed(stale.map((c) => c.text));
+    const { vectors, signature } = await this._embed(stale.map((c) => c.text));
     await this.store.putVectors(
       stale.map((chunk, i) => ({ id: chunk.id, vector: vectors[i] })),
-      this.embedder.signature
+      signature
     );
     return stale.length;
   }
 }
 
 async function normalizeCapture(capture) {
+  let url;
+  try {
+    url = new URL(capture.url);
+  } catch {
+    throw new Error("capture needs a valid HTTP(S) URL");
+  }
+  if (!["http:", "https:"].includes(url.protocol)) {
+    throw new Error("capture needs a valid HTTP(S) URL");
+  }
   // The content script reads the page; it does not decide what the page *is*.
   // Identity comes from the URL through the same rules the Python side uses, so
   // a page captured here and the same page synced by an adapter collide on one
@@ -191,7 +213,7 @@ async function normalizeCapture(capture) {
     source,
     sourceId,
     title: capture.title || "",
-    url: capture.url || "",
+    url: url.href,
     author: capture.author || "",
     // A video's `excerpt` is its description; a post's is a preview of a body
     // we are also indexing, and the chunker drops it in that case so one item

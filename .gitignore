@@ -22,4 +22,4 @@ htmlcov/
 node_modules/
 extension/models/
 extension/vendor/
-dist/
+output/playwright/

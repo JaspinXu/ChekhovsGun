@@ -63,6 +63,16 @@ def test_relate_by_url_detects_the_source(client):
     assert "hits" in payload
 
 
+def test_relate_with_source_but_no_id_excludes_the_current_page(client):
+    url = "https://www.zhihu.com/answer/987654"
+    title = "BM25 向量召回 RRF 混合检索"
+    item_id = client.post("/api/capture", json={"url": url, "title": title}).json()["item_id"]
+    payload = client.post("/api/relate", json={
+        "url": url, "source": "zhihu", "source_id": "", "title": title,
+    }).json()
+    assert all(hit["item"]["id"] != item_id for hit in payload["hits"])
+
+
 def test_search(client):
     payload = client.get("/api/search", params={"q": "B-Tree 索引", "limit": 3}).json()
     assert payload["count"] >= 1

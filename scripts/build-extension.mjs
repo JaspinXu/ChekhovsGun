@@ -13,10 +13,10 @@
  * difference is ~120MB and a real difference in retrieval quality.
  */
 
-import { createWriteStream } from "node:fs";
-import { mkdir, readdir, readFile, stat } from "node:fs/promises";
+import { copyFile, mkdir, mkdtemp, readdir, readFile, rm, stat } from "node:fs/promises";
 import { execFile } from "node:child_process";
 import { join, dirname, relative } from "node:path";
+import { tmpdir } from "node:os";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 
@@ -52,10 +52,8 @@ async function main() {
   const hasVendor = await exists(join(SOURCE, "vendor"));
 
   const files = [];
-  let bytes = 0;
   for await (const file of walk(SOURCE)) {
     files.push(relative(SOURCE, file).replace(/\\/g, "/"));
-    bytes += (await stat(file)).size;
   }
 
   await mkdir(OUT_DIR, { recursive: true });
@@ -63,16 +61,28 @@ async function main() {
   const name = `chekhovsgun-${manifest.version}-${suffix}.zip`;
   const target = join(OUT_DIR, name);
 
-  // PowerShell's Compress-Archive is present on every supported Windows box and
-  // `zip` on every Unix one, so neither platform needs a dependency here.
-  if (process.platform === "win32") {
-    await run("powershell", [
-      "-NoProfile",
-      "-Command",
-      `Compress-Archive -Path '${SOURCE}\\*' -DestinationPath '${target}' -Force`,
-    ]);
-  } else {
-    await run("zip", ["-r", "-q", target, "."], { cwd: SOURCE });
+  // Both platforms package the exact filtered file set. Build a fresh archive
+  // so zip's update semantics cannot retain files removed since the last run.
+  const stage = await mkdtemp(join(tmpdir(), "chekhovsgun-package-"));
+  try {
+    const payload = join(stage, "payload");
+    for (const file of files) {
+      const destination = join(payload, file);
+      await mkdir(dirname(destination), { recursive: true });
+      await copyFile(join(SOURCE, file), destination);
+    }
+    const archive = join(stage, "extension.zip");
+    if (process.platform === "win32") {
+      const quote = (value) => `'${value.replaceAll("'", "''")}'`;
+      await run("powershell", ["-NoProfile", "-Command",
+        `Compress-Archive -Path ${quote(join(payload, "*"))} -DestinationPath ${quote(archive)}`]);
+    } else {
+      await run("zip", ["-r", "-q", archive, "."], { cwd: payload });
+    }
+    await copyFile(archive, target);
+  } finally {
+    if (!stage.startsWith(join(tmpdir(), "chekhovsgun-package-"))) throw new Error("unexpected staging directory");
+    await rm(stage, { recursive: true, force: true });
   }
 
   const { size } = await stat(target);
@@ -84,7 +94,6 @@ async function main() {
       : "  no encoder included — runs on keyword retrieval; `npm run fetch-model` adds it"
   );
   console.log(`\n  dist/${name}\n`);
-  void bytes;
 }
 
 main().catch((error) => {

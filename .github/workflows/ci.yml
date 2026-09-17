@@ -60,7 +60,7 @@ jobs:
 
       - name: Install
         run: |
-          npm install
+          npm ci
           pip install -e .
 
       - name: Test the in-browser engine

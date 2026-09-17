@@ -16,6 +16,7 @@ import { IDBFactory } from "fake-indexeddb";
 
 function installChromeStub() {
   const messageListeners = [];
+  const changeListeners = [];
   const storage = { sync: {}, session: {} };
 
   const area = (name) => ({
@@ -29,7 +30,10 @@ function installChromeStub() {
       return { ...(defaults || {}), ...storage[name] };
     },
     async set(values) {
+      const changes = Object.fromEntries(Object.entries(values).map(([key, newValue]) =>
+        [key, { oldValue: storage[name][key], newValue }]));
       Object.assign(storage[name], values);
+      for (const listener of changeListeners) listener(changes, name);
     },
   });
 
@@ -59,7 +63,7 @@ function installChromeStub() {
     storage: {
       sync: area("sync"),
       session: area("session"),
-      onChanged: { addListener: () => {} },
+      onChanged: { addListener: (fn) => changeListeners.push(fn) },
     },
     alarms: {
       create: () => {},
@@ -272,4 +276,90 @@ test("the missing encoder never surfaces as a failure", async () => {
   assert.equal(status.status.model, null);
   assert.ok(status.status.items > 0, "and the library still works");
   void storage;
+});
+
+test("real page contexts without source_id have independent cooldowns", async () => {
+  const context = { source: "web", source_id: "", title: "Kubernetes 网络模型 pod IP service" };
+  const first = await send({ type: "relate", context: { ...context, url: "https://example.com/page-a" } });
+  const second = await send({ type: "relate", context: { ...context, url: "https://example.com/page-b" } });
+  assert.equal(first.fired, true);
+  assert.equal(second.fired, true, "another page must not inherit the first page's cooldown");
+  assert.notEqual(first.contextKey, second.contextKey);
+});
+
+test("a recipe context excludes the saved page itself", async () => {
+  await send({ type: "capture", payload: { url: "https://www.zhihu.com/answer/102",
+    title: "Kubernetes 网络模型", text: "每个 pod 在集群里都有自己的 IP 地址，service 提供稳定的虚拟 IP。" } });
+  const result = await send({ type: "relate", context: {
+    source: "zhihu", source_id: "", url: "https://www.zhihu.com/answer/102?utm_source=feed",
+    title: "Kubernetes 网络模型", description: "每个 pod 在集群里都有自己的 IP 地址，service 提供稳定的虚拟 IP。",
+  } });
+  assert.ok(!(result.hits || []).some((hit) => hit.item.id === "zhihu:102"));
+});
+
+test("batch capture counts invalid rows and skips URL variants without erasing body", async () => {
+  await send({ type: "capture", payload: {
+    url: "https://www.zhihu.com/answer/990", title: "完整正文", text: "BM25 与向量融合的完整正文。",
+  } });
+  const result = await send({ type: "captureBatch", payload: { items: [
+    { url: "https://www.zhihu.com/answer/990?utm_source=feed", title: "扫描标题" },
+    { title: "缺少链接" },
+  ] } });
+  assert.equal(result.skipped, 1);
+  assert.equal(result.added, 0);
+  assert.equal(result.failed, 1);
+  const recent = await send({ type: "recent" });
+  assert.equal(recent.items.find((item) => item.id === "zhihu:990").title, "完整正文");
+});
+
+test("stored backend address is honoured on the first request and search includes remote saves", async () => {
+  const original = globalThis.fetch;
+  const urls = [];
+  globalThis.fetch = async (url) => {
+    urls.push(url);
+    return { ok: true, json: async () => url.endsWith("/healthz") ? { ok: true } : {
+      hits: [{ item: { id: "youtube:remoteonly1", source: "youtube", source_id: "remoteonly1",
+        title: "Remote nebula", url: "https://www.youtube.com/watch?v=remoteonly1" }, chunks: [], confidence: 0.9 }],
+    } };
+  };
+  try {
+    await chrome.storage.sync.set({ useBackend: true, serverUrl: "http://127.0.0.1:9876" });
+    const result = await send({ type: "search", query: "nebula" });
+    assert.ok(result.hits.some((hit) => hit.item.id === "youtube:remoteonly1"));
+    assert.ok(urls.length > 0 && urls.every((url) => url.startsWith("http://127.0.0.1:9876/")));
+  } finally {
+    globalThis.fetch = original;
+    await chrome.storage.sync.set({ useBackend: false });
+  }
+});
+
+test("disabling the model during warmup cannot be undone by its stale completion", async () => {
+  const originalSend = chrome.runtime.sendMessage;
+  const originalContexts = chrome.runtime.getContexts;
+  const originalCreate = chrome.alarms.create;
+  let finish, started;
+  const waiting = new Promise((resolve) => { started = resolve; });
+  const alarms = [];
+  chrome.runtime.getContexts = async () => [{ contextType: "OFFSCREEN_DOCUMENT" }];
+  chrome.alarms.create = (name) => alarms.push(name);
+  chrome.runtime.sendMessage = (message, callback) => {
+    if (message.target === "offscreen" && message.type === "warmup") {
+      finish = () => callback({ ok: true, status: { state: "ready" } });
+      started();
+    } else originalSend(message, callback);
+  };
+  try {
+    await chrome.storage.sync.set({ useModel: true });
+    await waiting;
+    await chrome.storage.sync.set({ useModel: false });
+    finish();
+    await new Promise((resolve) => setImmediate(resolve));
+    const result = await send({ type: "status" });
+    assert.equal(result.status.model, null);
+    assert.ok(!alarms.includes("chekhovsgun-reembed"));
+  } finally {
+    chrome.runtime.sendMessage = originalSend;
+    chrome.runtime.getContexts = originalContexts;
+    chrome.alarms.create = originalCreate;
+  }
 });
