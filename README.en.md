@@ -7,18 +7,14 @@
 
 **The things you saved come find you — right when you're scrolling past something related.**
 
-We've all done it: you stumble onto a genuinely great tutorial or a great answer, hit
-save, tell yourself you'll read it later, and it stays in that folder forever.
-ChekhovsGun inverts the problem. Instead of hoping you'll remember to dig through your
-bookmarks, it waits until you're **actually looking** at something related and tells you
-"you already saved this" — then reads you the relevant passage from what you saved.
+ChekhovsGun is a local-first browser extension that saves articles and videos, then
+finds useful passages from your own collection when you read something related.
+Each result links to the original passage or video timestamp.
 
-The whole promise is: **just bookmark things.** You don't export anything, you don't
-file anything, you don't come back to a reading list. You click the save button you were
-already going to click, and the thing comes back to you when it is useful.
-
-Videos and posts both, from platforms with an API and platforms without one. Everything
-runs locally by default; optional backend integrations are described below.
+Save through a supported site's bookmark button or the extension toolbar. Search
+your collection whenever you need it, starting with your first save. Capture,
+indexing and retrieval run inside the browser by default; an optional Python backend
+adds platform sync, subtitles, comments and local audio transcription.
 
 ![Chrome Extension](https://img.shields.io/badge/Chrome%20Extension-Manifest%20V3-4285F4?logo=googlechrome&logoColor=white)
 ![JavaScript](https://img.shields.io/badge/Retrieval%20core-JavaScript-F7DF1E?logo=javascript&logoColor=black)
@@ -39,12 +35,13 @@ runs locally by default; optional backend integrations are described below.
 
 ## Highlights
 
-- **Bookmarking is the only step:** click the site's own save button and that page is in. Nothing to export, nothing to file, no reading list to revisit.
+- **Save as you browse:** use a supported site's bookmark button or save the current page from the extension toolbar.
+- **Search anytime:** find relevant passages and open their sources from your very first save.
 - **It finds you while you scroll:** the extension recognizes the page you're on and pops a card on a hit — a video seeks to the second that covers it, a post scrolls to and highlights the passage that does.
-- **Take in the backlog at once:** a one-click scan collects links loaded while scrolling a favourites page. Standalone mode initially stores titles and links.
+- **Scan existing bookmarks:** collect links loaded while scrolling a favourites page. Standalone mode stores titles and links; pagination and virtualized lists can limit coverage.
 - **Hybrid retrieval:** a BM25 inverted index and vector recall run side by side, fused by rank with RRF, with a separate confidence score deciding whether this is worth interrupting you at all.
 - **Mixed Chinese/English retrieval:** CJK character bigrams shared by both retrieval paths; optional multilingual-e5-small adds semantic vectors. Pure cross-language results can still be filtered by the confidence gate.
-- **Four content sources:** subtitles (Bilibili CC and AI tracks, YouTube player tracks), top comments, local Whisper transcription as a fallback, and heuristic article extraction for posts.
+- **Multiple content sources:** the extension extracts article text, video titles and descriptions; the optional backend adds subtitles, top comments and local Whisper transcripts.
 - **The life of a save:** active, digested or muted. The digested rate — not the number of popups — is the success metric, and a re-sync never overwrites your own marks.
 - **Local by default:** saves and retrieval stay on-device. Optional platform sync and remote AI providers use network requests; no telemetry.
 - **Extensible site recipes:** Zhihu, Xiaohongshu, WeChat articles, Weibo, Juejin, CSDN, Jianshu, Reddit, X, Stack Overflow, Medium, YouTube and Bilibili ship built in; a new site is one entry in `extension/recipes.js`.
@@ -583,12 +580,4 @@ both. Pushing a tag has CI build artifacts for all three platforms plus the exte
 
 ## License
 
-MIT
-
-## Credits
-
-Two projects informed the design: [Zangzhi Studio](https://github.com/Y-iyilin/zangzhi-studio)
-(comments as a first-class content source, local transcription, the local-first stance) and
-[Shiguang](https://github.com/zihuv/shiguang) (shipping as an installable package, and the
-tag-and-organize library management). Both solve different problems than this one does, but
-those particular calls were right.
+[MIT](LICENSE)
