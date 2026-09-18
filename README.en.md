@@ -2,6 +2,12 @@
 
 [简体中文](README.md) · **English**
 
+![ChekhovsGun: your bookmarks, right on cue](docs/assets/hero.png)
+
+*Concept illustration: save, connect, rediscover.*
+
+[Download](https://github.com/JaspinXu/ChekhovsGun/releases/latest) · [Install](#install-it-in-30-seconds) · [Architecture](#how-it-works)
+
 > If a gun hangs on the wall in the first act, it must go off in the third.
 > Everything you bookmark deserves the same.
 
@@ -53,19 +59,9 @@ runs locally by default; optional backend integrations are described below.
 
 ## How it works
 
-```mermaid
-flowchart LR
-    Save["you click Save"] --> Ext["extension reads the page you're on"]
-    Ext --> Index["chunks · vectors · BM25 index<br/>IndexedDB, local"]
-    Backend["optional backend retrieval<br/>Whisper · YouTube / Bilibili APIs"] -.-> Merge["result-level RRF fusion"]
-    Scroll["you scroll onto something related"] --> Hybrid["hybrid retrieval + RRF"]
-    Index --> Hybrid
-    Hybrid --> Merge
-    Merge --> Conf{"confident enough"}
-    Conf -->|"yes"| Card["card: you saved this<br/>+ a short read"]
-    Conf -->|"no"| Quiet["stay quiet"]
-    Card --> Done["mark digested, never asked again"]
-```
+![Capture, local indexing, hybrid retrieval and resurfacing, with optional backend result fusion](docs/assets/architecture-en.svg)
+
+*The default path runs in the browser. Dashed paths are optional. Click to expand.*
 
 1. **Take things in**, two ways that meet in the same place:
    - **The browser extension**, on its own, captures whatever you save on any site. It

@@ -2,6 +2,12 @@
 
 **简体中文** · [English](README.en.md)
 
+![ChekhovsGun：让沉睡的收藏，在需要时重新出现](docs/assets/hero.png)
+
+*概念插画：从保存，到关联，再到重新发现。*
+
+[下载扩展](https://github.com/JaspinXu/ChekhovsGun/releases/latest) · [安装指南](#30-秒装好) · [架构图](#它是怎么工作的)
+
 > 如果第一幕墙上挂着一把枪，第三幕它就必须开火。
 > 你收藏的每一条内容，也应该如此。
 
@@ -50,19 +56,9 @@
 
 ## 它是怎么工作的
 
-```mermaid
-flowchart LR
-    Save["你点了「收藏」"] --> Ext["扩展读取你当前在看的页面"]
-    Ext --> Index["分块 · 向量 · BM25 倒排<br/>IndexedDB 本地"]
-    Backend["可选后端独立检索<br/>Whisper · YouTube / B 站 API"] -.-> Merge["结果层 RRF 融合"]
-    Scroll["刷到相关内容"] --> Hybrid["混合检索 + RRF 融合"]
-    Index --> Hybrid
-    Hybrid --> Merge
-    Merge --> Conf{"置信度够不够"}
-    Conf -->|"够"| Card["弹出卡片<br/>你收藏过 + 一段原文"]
-    Conf -->|"不够"| Quiet["保持安静"]
-    Card --> Done["点「学完了」，不再打扰"]
-```
+![采集、本地索引、混合检索与提醒；可选后端通过结果层融合接入](docs/assets/architecture-zh.svg)
+
+*默认路径在浏览器内完成；虚线为可选后端。点击图片可查看大图。*
 
 1. **收进来**，两条路最后汇到同一个地方：
    - **浏览器扩展**自己就能干完全部的活。它读的是你**已经登录的浏览器**看得到的页面，

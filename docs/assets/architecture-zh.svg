@@ -1,0 +1,73 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="790" viewBox="0 0 1200 790" role="img" aria-labelledby="title desc">
+<title id="title">让收藏，在相关的时刻重新出现</title><desc id="desc">浏览器内完成采集与检索；可选后端扩充内容来源。</desc>
+<defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0 0L10 5L0 10Z" fill="#497E79"/></marker></defs>
+<rect width="1200" height="790" rx="22" fill="#FAF8F2"/>
+<g font-family="Inter, Segoe UI, Microsoft YaHei, Arial, sans-serif">
+<text x="36" y="46" font-size="13" fill="#497E79" font-weight="700">CHEKHOVSGUN  /  SYSTEM OVERVIEW</text>
+<text x="36" y="91" font-size="32" fill="#163244" font-weight="700">让收藏，在相关的时刻重新出现</text>
+<text x="36" y="122" font-size="17" fill="#637481" font-weight="400">浏览器内完成采集与检索；可选后端扩充内容来源。</text>
+<rect x="24" y="149" width="1152" height="394" rx="14" fill="#F0F5F1" stroke="#CBDAD2"/>
+<text x="44" y="180" font-size="13" fill="#497E79" font-weight="700">浏览器 / 默认路径</text>
+<text x="44" y="220" font-size="16" fill="#A77732" font-weight="700">01</text>
+<text x="78" y="220" font-size="22" fill="#163244" font-weight="600">顺手采集</text>
+<rect x="44" y="244" width="254" height="82" rx="14" fill="#FFFFFF" stroke="#D9E1DF"/>
+<text x="60" y="275" font-size="17" fill="#163244" font-weight="600">站点收藏 / 工具栏保存</text>
+<text x="60" y="301" font-size="14" fill="#637481" font-weight="400">读取当前浏览器可见内容</text>
+<rect x="44" y="344" width="254" height="82" rx="14" fill="#FFFFFF" stroke="#D9E1DF"/>
+<text x="60" y="375" font-size="17" fill="#163244" font-weight="600">正文与视频元信息</text>
+<text x="60" y="401" font-size="14" fill="#637481" font-weight="400">保留来源，形成收藏条目</text>
+<path d="M171 326V344" fill="none" stroke="#497E79" stroke-width="2" marker-end="url(#arrow)"/>
+<path d="M298 385H312V284H330" fill="none" stroke="#497E79" stroke-width="2" marker-end="url(#arrow)"/>
+<text x="330" y="220" font-size="16" fill="#A77732" font-weight="700">02</text>
+<text x="364" y="220" font-size="22" fill="#163244" font-weight="600">本地索引</text>
+<rect x="330" y="244" width="254" height="82" rx="14" fill="#FFFFFF" stroke="#D9E1DF"/>
+<text x="346" y="275" font-size="17" fill="#163244" font-weight="600">内容分块</text>
+<text x="346" y="301" font-size="14" fill="#637481" font-weight="400">段落与原文链接</text>
+<rect x="330" y="344" width="254" height="82" rx="14" fill="#FFFFFF" stroke="#D9E1DF"/>
+<text x="346" y="375" font-size="17" fill="#163244" font-weight="600">IndexedDB</text>
+<text x="346" y="401" font-size="14" fill="#637481" font-weight="400">条目 · 分块 · 向量</text>
+<path d="M457 326V344" fill="none" stroke="#497E79" stroke-width="2" marker-end="url(#arrow)"/>
+<path d="M584 385H598V284H616" fill="none" stroke="#497E79" stroke-width="2" marker-end="url(#arrow)"/>
+<text x="616" y="220" font-size="16" fill="#A77732" font-weight="700">03</text>
+<text x="650" y="220" font-size="22" fill="#163244" font-weight="600">混合检索</text>
+<rect x="616" y="244" width="254" height="82" rx="14" fill="#FFFFFF" stroke="#D9E1DF"/>
+<text x="632" y="275" font-size="17" fill="#163244" font-weight="600">BM25 + 向量召回</text>
+<text x="632" y="301" font-size="14" fill="#637481" font-weight="400">RRF 排名融合</text>
+<rect x="616" y="344" width="254" height="82" rx="14" fill="#FFFFFF" stroke="#D9E1DF"/>
+<text x="632" y="375" font-size="17" fill="#163244" font-weight="600">选出相关段落</text>
+<text x="632" y="401" font-size="14" fill="#637481" font-weight="400">置信度 · 条目状态</text>
+<path d="M743 326V344" fill="none" stroke="#497E79" stroke-width="2" marker-end="url(#arrow)"/>
+<path d="M870 385H884V284H902" fill="none" stroke="#497E79" stroke-width="2" marker-end="url(#arrow)"/>
+<text x="902" y="220" font-size="16" fill="#A77732" font-weight="700">04</text>
+<text x="936" y="220" font-size="22" fill="#163244" font-weight="600">重新发现</text>
+<rect x="902" y="244" width="254" height="82" rx="14" fill="#FFFFFF" stroke="#D9E1DF"/>
+<text x="918" y="275" font-size="17" fill="#163244" font-weight="600">相关段落 + 原文入口</text>
+<text x="918" y="301" font-size="14" fill="#637481" font-weight="400">文章定位 · 视频时间点</text>
+<rect x="902" y="344" width="254" height="82" rx="14" fill="#FFFFFF" stroke="#D9E1DF"/>
+<text x="918" y="375" font-size="17" fill="#163244" font-weight="600">阅读 → 标记「学完了」</text>
+<text x="918" y="401" font-size="14" fill="#637481" font-weight="400">不再进入自动提醒</text>
+<path d="M1029 326V344" fill="none" stroke="#497E79" stroke-width="2" marker-end="url(#arrow)"/>
+<rect x="616" y="451" width="254" height="62" rx="14" fill="#E1ECE7" stroke="#C4D6CE"/>
+<text x="632" y="488" font-size="16" fill="#163244" font-weight="600">当前页面上下文 / 主动搜索</text>
+<path d="M630 451H608V284H616" fill="none" stroke="#497E79" stroke-width="2" marker-end="url(#arrow)"/>
+<rect x="44" y="451" width="540" height="62" rx="14" fill="#F9F7F0" stroke="#DDD9CB"/>
+<text x="60" y="476" font-size="12" fill="#A77732" font-weight="700">编码器</text>
+<text x="60" y="499" font-size="15" fill="#163244" font-weight="400">默认使用哈希向量</text>
+<text x="274" y="499" font-size="14" fill="#637481" font-weight="400">可选本地 multilingual-e5-small</text>
+<rect x="902" y="451" width="254" height="62" rx="14" fill="#FAECD0" stroke="#E6D4AC"/>
+<text x="918" y="477" font-size="12" fill="#966727" font-weight="700">自动提醒策略</text>
+<text x="918" y="499" font-size="13" fill="#6E624B" font-weight="400">收藏库门槛 · 冷却 · 静音</text>
+<text x="620" y="570" font-size="15" fill="#637481" font-weight="400">主动搜索从第一条收藏起可用</text>
+<rect x="24" y="604" width="846" height="112" rx="14" fill="#FFFFFF" stroke="#98ABA8" stroke-dasharray="7 5"/>
+<text x="44" y="632" font-size="13" fill="#497E79" font-weight="700">可选 PYTHON 后端</text>
+<text x="44" y="665" font-size="17" fill="#163244" font-weight="600">平台 API · 字幕 · 评论 · Whisper*</text>
+<text x="44" y="693" font-size="16" fill="#637481" font-weight="400">独立 SQLite 收藏库与检索</text>
+<rect x="902" y="604" width="254" height="112" rx="14" fill="#E1ECE7" stroke="#98ABA8" stroke-dasharray="7 5"/>
+<text x="918" y="646" font-size="20" fill="#163244" font-weight="600">结果层融合</text>
+<text x="918" y="677" font-size="14" fill="#637481" font-weight="400">本地与后端命中去重</text>
+<path d="M870 660H902" fill="none" stroke="#497E79" stroke-width="2" marker-end="url(#arrow)" stroke-dasharray="6 5"/>
+<path d="M870 405H888V588H1029V604" fill="none" stroke="#497E79" stroke-width="2" marker-end="url(#arrow)" stroke-dasharray="6 5"/>
+<path d="M1156 660H1170V284H1156" fill="none" stroke="#497E79" stroke-width="2" marker-end="url(#arrow)" stroke-dasharray="6 5"/>
+<text x="36" y="748" font-size="13" fill="#637481" font-weight="400">* Whisper 需要可选依赖。两端使用独立收藏库，不共享向量空间，也不进行双向同步。</text>
+<text x="36" y="772" font-size="12" fill="#637481" font-weight="400">实线：默认路径     虚线：可选路径</text>
+</g></svg>

@@ -1,0 +1,73 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="790" viewBox="0 0 1200 790" role="img" aria-labelledby="title desc">
+<title id="title">From saved content to useful context</title><desc id="desc">A browser-native retrieval loop. An optional backend extends the collection.</desc>
+<defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0 0L10 5L0 10Z" fill="#497E79"/></marker></defs>
+<rect width="1200" height="790" rx="22" fill="#FAF8F2"/>
+<g font-family="Inter, Segoe UI, Microsoft YaHei, Arial, sans-serif">
+<text x="36" y="46" font-size="13" fill="#497E79" font-weight="700">CHEKHOVSGUN  /  SYSTEM OVERVIEW</text>
+<text x="36" y="91" font-size="32" fill="#163244" font-weight="700">From saved content to useful context</text>
+<text x="36" y="122" font-size="17" fill="#637481" font-weight="400">A browser-native retrieval loop. An optional backend extends the collection.</text>
+<rect x="24" y="149" width="1152" height="394" rx="14" fill="#F0F5F1" stroke="#CBDAD2"/>
+<text x="44" y="180" font-size="13" fill="#497E79" font-weight="700">BROWSER / DEFAULT</text>
+<text x="44" y="220" font-size="16" fill="#A77732" font-weight="700">01</text>
+<text x="78" y="220" font-size="22" fill="#163244" font-weight="600">Capture</text>
+<rect x="44" y="244" width="254" height="82" rx="14" fill="#FFFFFF" stroke="#D9E1DF"/>
+<text x="60" y="275" font-size="17" fill="#163244" font-weight="600">Save on a supported site</text>
+<text x="60" y="301" font-size="14" fill="#637481" font-weight="400">or use the extension toolbar</text>
+<rect x="44" y="344" width="254" height="82" rx="14" fill="#FFFFFF" stroke="#D9E1DF"/>
+<text x="60" y="375" font-size="17" fill="#163244" font-weight="600">Read visible page content</text>
+<text x="60" y="401" font-size="14" fill="#637481" font-weight="400">Article text · video metadata</text>
+<path d="M171 326V344" fill="none" stroke="#497E79" stroke-width="2" marker-end="url(#arrow)"/>
+<path d="M298 385H312V284H330" fill="none" stroke="#497E79" stroke-width="2" marker-end="url(#arrow)"/>
+<text x="330" y="220" font-size="16" fill="#A77732" font-weight="700">02</text>
+<text x="364" y="220" font-size="22" fill="#163244" font-weight="600">Index locally</text>
+<rect x="330" y="244" width="254" height="82" rx="14" fill="#FFFFFF" stroke="#D9E1DF"/>
+<text x="346" y="275" font-size="17" fill="#163244" font-weight="600">Split into passages</text>
+<text x="346" y="301" font-size="14" fill="#637481" font-weight="400">Preserve source links</text>
+<rect x="330" y="344" width="254" height="82" rx="14" fill="#FFFFFF" stroke="#D9E1DF"/>
+<text x="346" y="375" font-size="17" fill="#163244" font-weight="600">IndexedDB</text>
+<text x="346" y="401" font-size="14" fill="#637481" font-weight="400">Items · chunks · vectors</text>
+<path d="M457 326V344" fill="none" stroke="#497E79" stroke-width="2" marker-end="url(#arrow)"/>
+<path d="M584 385H598V284H616" fill="none" stroke="#497E79" stroke-width="2" marker-end="url(#arrow)"/>
+<text x="616" y="220" font-size="16" fill="#A77732" font-weight="700">03</text>
+<text x="650" y="220" font-size="22" fill="#163244" font-weight="600">Retrieve</text>
+<rect x="616" y="244" width="254" height="82" rx="14" fill="#FFFFFF" stroke="#D9E1DF"/>
+<text x="632" y="275" font-size="17" fill="#163244" font-weight="600">BM25 + vector retrieval</text>
+<text x="632" y="301" font-size="14" fill="#637481" font-weight="400">Rank fusion (RRF)</text>
+<rect x="616" y="344" width="254" height="82" rx="14" fill="#FFFFFF" stroke="#D9E1DF"/>
+<text x="632" y="375" font-size="17" fill="#163244" font-weight="600">Select relevant passages</text>
+<text x="632" y="401" font-size="14" fill="#637481" font-weight="400">Confidence · item state</text>
+<path d="M743 326V344" fill="none" stroke="#497E79" stroke-width="2" marker-end="url(#arrow)"/>
+<path d="M870 385H884V284H902" fill="none" stroke="#497E79" stroke-width="2" marker-end="url(#arrow)"/>
+<text x="902" y="220" font-size="16" fill="#A77732" font-weight="700">04</text>
+<text x="936" y="220" font-size="22" fill="#163244" font-weight="600">Resurface</text>
+<rect x="902" y="244" width="254" height="82" rx="14" fill="#FFFFFF" stroke="#D9E1DF"/>
+<text x="918" y="275" font-size="17" fill="#163244" font-weight="600">A passage, with its source</text>
+<text x="918" y="301" font-size="14" fill="#637481" font-weight="400">Article anchor · video timestamp</text>
+<rect x="902" y="344" width="254" height="82" rx="14" fill="#FFFFFF" stroke="#D9E1DF"/>
+<text x="918" y="375" font-size="17" fill="#163244" font-weight="600">Read → mark digested</text>
+<text x="918" y="401" font-size="14" fill="#637481" font-weight="400">Exclude from future reminders</text>
+<path d="M1029 326V344" fill="none" stroke="#497E79" stroke-width="2" marker-end="url(#arrow)"/>
+<rect x="616" y="451" width="254" height="62" rx="14" fill="#E1ECE7" stroke="#C4D6CE"/>
+<text x="632" y="488" font-size="16" fill="#163244" font-weight="600">Current page or explicit search</text>
+<path d="M630 451H608V284H616" fill="none" stroke="#497E79" stroke-width="2" marker-end="url(#arrow)"/>
+<rect x="44" y="451" width="540" height="62" rx="14" fill="#F9F7F0" stroke="#DDD9CB"/>
+<text x="60" y="476" font-size="12" fill="#A77732" font-weight="700">ENCODER</text>
+<text x="60" y="499" font-size="15" fill="#163244" font-weight="400">Hash vectors by default</text>
+<text x="274" y="499" font-size="14" fill="#637481" font-weight="400">Optional local multilingual-e5-small</text>
+<rect x="902" y="451" width="254" height="62" rx="14" fill="#FAECD0" stroke="#E6D4AC"/>
+<text x="918" y="477" font-size="12" fill="#966727" font-weight="700">REMINDER POLICY</text>
+<text x="918" y="499" font-size="13" fill="#6E624B" font-weight="400">Library-size gate · cooldown · mute</text>
+<text x="620" y="570" font-size="15" fill="#637481" font-weight="400">Explicit search starts with the first save</text>
+<rect x="24" y="604" width="846" height="112" rx="14" fill="#FFFFFF" stroke="#98ABA8" stroke-dasharray="7 5"/>
+<text x="44" y="632" font-size="13" fill="#497E79" font-weight="700">OPTIONAL PYTHON BACKEND</text>
+<text x="44" y="665" font-size="17" fill="#163244" font-weight="600">Platform APIs · subtitles · comments · Whisper*</text>
+<text x="44" y="693" font-size="16" fill="#637481" font-weight="400">Independent SQLite library + retrieval</text>
+<rect x="902" y="604" width="254" height="112" rx="14" fill="#E1ECE7" stroke="#98ABA8" stroke-dasharray="7 5"/>
+<text x="918" y="646" font-size="20" fill="#163244" font-weight="600">Result-level fusion</text>
+<text x="918" y="677" font-size="14" fill="#637481" font-weight="400">Deduplicate local + remote hits</text>
+<path d="M870 660H902" fill="none" stroke="#497E79" stroke-width="2" marker-end="url(#arrow)" stroke-dasharray="6 5"/>
+<path d="M870 405H888V588H1029V604" fill="none" stroke="#497E79" stroke-width="2" marker-end="url(#arrow)" stroke-dasharray="6 5"/>
+<path d="M1156 660H1170V284H1156" fill="none" stroke="#497E79" stroke-width="2" marker-end="url(#arrow)" stroke-dasharray="6 5"/>
+<text x="36" y="748" font-size="13" fill="#637481" font-weight="400">* Whisper requires optional dependencies. The two libraries do not share vector spaces or sync bidirectionally.</text>
+<text x="36" y="772" font-size="12" fill="#637481" font-weight="400">Solid: default path     Dashed: optional path</text>
+</g></svg>
