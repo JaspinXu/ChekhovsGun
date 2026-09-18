@@ -1,15 +1,36 @@
+<div align="center">
+
 # ChekhovsGun
+
+**你收藏过的东西，会在你刷到相关内容时自己跳出来找你。**
 
 **简体中文** · [English](README.en.md)
 
-<p align="center"><img src="docs/assets/v2/hero-zh.png" alt="ChekhovsGun：你只需要收藏。刷到相关内容时，收藏过的那一条会自己跳出来" width="100%"></p>
+<img src="docs/assets/v2/hero-zh.png" alt="ChekhovsGun：你只需要收藏。刷到相关内容时，收藏过的那一条会自己跳出来" width="100%">
 
-[下载扩展](https://github.com/JaspinXu/ChekhovsGun/releases/latest) · [安装指南](#30-秒装好) · [架构图](#它是怎么工作的)
+<p>
+<img src="https://img.shields.io/badge/Chrome%20Extension-Manifest%20V3-4285F4?logo=googlechrome&logoColor=white" alt="Chrome Extension">
+<img src="https://img.shields.io/badge/%E6%A3%80%E7%B4%A2%E5%86%85%E6%A0%B8-JavaScript-F7DF1E?logo=javascript&logoColor=black" alt="JavaScript">
+<img src="https://img.shields.io/badge/%E6%9C%AC%E5%9C%B0%E5%AD%98%E5%82%A8-IndexedDB-5A29E4" alt="IndexedDB">
+<img src="https://img.shields.io/badge/%E5%8F%AF%E9%80%89%E5%90%8E%E7%AB%AF-Python%203.10+-3776AB?logo=python&logoColor=white" alt="Python">
+<img src="https://img.shields.io/badge/%E5%90%8E%E7%AB%AF%E7%B4%A2%E5%BC%95-SQLite-003B57?logo=sqlite&logoColor=white" alt="SQLite">
+<img src="https://img.shields.io/badge/License-MIT-blue" alt="License">
+</p>
+
+<h3>
+<a href="https://github.com/JaspinXu/ChekhovsGun/releases/latest">下载扩展</a> ·
+<a href="#30-秒装好">30 秒装好</a> ·
+<a href="#它是怎么工作的">它是怎么工作的</a> ·
+<a href="#检索是怎么做的以及为什么这么做">检索原理</a> ·
+<a href="#已知限制">已知限制</a>
+</h3>
+
+</div>
+
+<br>
 
 > 如果第一幕墙上挂着一把枪，第三幕它就必须开火。
 > 你收藏的每一条内容，也应该如此。
-
-**你收藏过的东西，会在你刷到相关内容时自己跳出来找你。**
 
 我们都干过同一件事：刷到一个讲得特别好的教程、一条写得特别透的回答，点了收藏，
 想着"以后一定看"，然后它就永远躺在收藏夹里吃灰了。ChekhovsGun 把这件事反过来做——
@@ -22,33 +43,56 @@
 视频和帖子都收，有 API 的平台和没 API 的平台都收。全部在本地运行，
 收藏夹和浏览记录不会离开这台机器。
 
-![Chrome Extension](https://img.shields.io/badge/Chrome%20Extension-Manifest%20V3-4285F4?logo=googlechrome&logoColor=white)
-![JavaScript](https://img.shields.io/badge/%E6%A3%80%E7%B4%A2%E5%86%85%E6%A0%B8-JavaScript-F7DF1E?logo=javascript&logoColor=black)
-![IndexedDB](https://img.shields.io/badge/%E6%9C%AC%E5%9C%B0%E5%AD%98%E5%82%A8-IndexedDB-5A29E4)
-![Python](https://img.shields.io/badge/%E5%8F%AF%E9%80%89%E5%90%8E%E7%AB%AF-Python%203.10+-3776AB?logo=python&logoColor=white)
-![SQLite](https://img.shields.io/badge/%E5%90%8E%E7%AB%AF%E7%B4%A2%E5%BC%95-SQLite-003B57?logo=sqlite&logoColor=white)
-![License](https://img.shields.io/badge/License-MIT-blue)
-
+> [!TIP]
 > 装一个扩展就能完整使用：不需要 Python，不需要服务端，不需要任何 API key，
 > 采集、建索引、检索全部在浏览器里完成。可选的 Python 后端补充本地 Whisper 转写、
 > 平台 API 批量同步和扫描链接的正文抓取。藏书满 15 条之后卡片才会开始弹，
 > 这是故意的；主动搜索从第一条收藏起就能用：点击扩展图标，在「搜索你的收藏」里输入关键词。
 
-[30 秒装好](#30-秒装好) · [功能亮点](#功能亮点) · [它是怎么工作的](#它是怎么工作的) · [打开语义检索](#打开语义检索) · [可选的 Python 后端](#可选的-python-后端) · [命令行](#命令行) · [已知限制](#已知限制)
+<details>
+<summary><b>目录</b></summary>
+
+- [功能亮点](#功能亮点)
+- [它是怎么工作的](#它是怎么工作的)
+- [30 秒装好](#30-秒装好)
+- [打开语义检索](#打开语义检索)
+- [可选的 Python 后端](#可选的-python-后端)
+- [接上你的视频账号](#接上你的视频账号)
+- [四个内容源](#四个内容源)
+- [收藏的一生](#收藏的一生)
+- [收藏太少时它不会弹](#收藏太少时它不会弹)
+- [检索是怎么做的（以及为什么这么做）](#检索是怎么做的以及为什么这么做)
+- [那段"解读"](#那段解读)
+- [命令行](#命令行)
+- [数据放在哪](#数据放在哪)
+- [开发](#开发)
+- [打包](#打包)
+- [已知限制](#已知限制)
+- [License](#license)
+
+</details>
 
 ---
 
 ## 功能亮点
 
-- **只需要收藏：** 点网站自己的收藏按钮，这一页就进来了。不用导出，不用整理，不用回头翻清单。
-- **刷到就提醒：** 扩展识别你当前在看的页面，命中就弹一张卡片——视频跳到讲这件事的那一秒，帖子滚动到并高亮出讲这件事的那一段。
-- **存量一次收完：** 收藏夹页面上的一键扫描会自动往下翻完整个收藏夹，收集当前列表滚动加载出的链接；独立模式先存标题和链接。
-- **混合检索：** BM25 倒排与向量召回并行，RRF 按排名融合，再由一个独立的置信度决定「到底要不要打扰你」。
-- **中英混合检索：** CJK 字符一元组 + 二元组分词，向量与 BM25 共用同一套；可选的本地 multilingual-e5-small 提供语义向量，纯跨语言召回仍受置信度门槛限制。
-- **四个内容源：** 字幕（B 站 CC 与 AI 字幕、YouTube 播放器轨）、高赞评论、本地 Whisper 转写兜底，以及网页正文的启发式抽取。
-- **收藏的一生：** 还欠着 / 已学完 / 已静音三个状态。学完率而不是弹出次数才是成功指标，重新同步永远不会覆盖你的标记。
-- **默认本地：** 收藏与检索在设备上完成；可选的平台同步和远程 AI 服务会发起网络请求。没有遥测。
-- **站点规则可扩展：** 知乎、小红书、公众号、微博、掘金、CSDN、简书、Reddit、X、Stack Overflow、Medium、YouTube、B 站已内置；加一个新站点只要在 `extension/recipes.js` 里加一条记录。
+<table>
+<tr>
+<td width="33%" valign="top"><b>只需要收藏</b><br>点网站自己的收藏按钮，这一页就进来了。不用导出，不用整理，不用回头翻清单。</td>
+<td width="33%" valign="top"><b>刷到就提醒</b><br>扩展识别你当前在看的页面，命中就弹一张卡片——视频跳到讲这件事的那一秒，帖子滚动到并高亮出讲这件事的那一段。</td>
+<td width="33%" valign="top"><b>存量一次收完</b><br>收藏夹页面上的一键扫描会自动往下翻完整个收藏夹，收集当前列表滚动加载出的链接；独立模式先存标题和链接。</td>
+</tr>
+<tr>
+<td width="33%" valign="top"><b>混合检索</b><br>BM25 倒排与向量召回并行，RRF 按排名融合，再由一个独立的置信度决定「到底要不要打扰你」。</td>
+<td width="33%" valign="top"><b>中英混合检索</b><br>CJK 字符一元组 + 二元组分词，向量与 BM25 共用同一套；可选的本地 multilingual-e5-small 提供语义向量，纯跨语言召回仍受置信度门槛限制。</td>
+<td width="33%" valign="top"><b>四个内容源</b><br>字幕（B 站 CC 与 AI 字幕、YouTube 播放器轨）、高赞评论、本地 Whisper 转写兜底，以及网页正文的启发式抽取。</td>
+</tr>
+<tr>
+<td width="33%" valign="top"><b>收藏的一生</b><br>还欠着 / 已学完 / 已静音三个状态。学完率而不是弹出次数才是成功指标，重新同步永远不会覆盖你的标记。</td>
+<td width="33%" valign="top"><b>默认本地</b><br>收藏与检索在设备上完成；可选的平台同步和远程 AI 服务会发起网络请求。没有遥测。</td>
+<td width="33%" valign="top"><b>站点规则可扩展</b><br>知乎、小红书、公众号、微博、掘金、CSDN、简书、Reddit、X、Stack Overflow、Medium、YouTube、B 站已内置；加一个新站点只要在 <code>extension/recipes.js</code> 里加一条记录。</td>
+</tr>
+</table>
 
 ---
 
@@ -110,10 +154,12 @@
 - **其它任何页面**，点扩展图标再点*收进 ChekhovsGun*。这条路走的是 `activeTab`：
   只在你点的那一下授权，扩展平时没有读取你浏览记录的权限。
 
-**收藏不满 15 条之前卡片不会弹**。这是故意的，不是坏了——原因见
-[收藏太少时它不会弹](#收藏太少时它不会弹)。弹窗里会告诉你还差几条，
-而主动搜索从第一条收藏起就能用：点击扩展图标，在「搜索你的收藏」里输入关键词。
+> [!IMPORTANT]
+> **收藏不满 15 条之前卡片不会弹**。这是故意的，不是坏了——原因见
+> [收藏太少时它不会弹](#收藏太少时它不会弹)。弹窗里会告诉你还差几条，
+> 而主动搜索从第一条收藏起就能用：点击扩展图标，在「搜索你的收藏」里输入关键词。
 
+> [!NOTE]
 > 有些网站收藏和取消收藏是同一个按钮。控件自己暴露了状态的，我们按状态判断；
 > 判断不出来的，按「收藏」处理。
 
@@ -187,7 +233,8 @@ pretending you just scrolled onto:
 
 ## 接上你的视频账号
 
-### 哔哩哔哩
+<details open>
+<summary><b>哔哩哔哩</b></summary>
 
 B 站没有公开 API，所以用你浏览器里的 cookie。在已登录的 bilibili.com 页面按
 F12 → Application → Cookies，复制 `SESSDATA`：
@@ -206,10 +253,14 @@ chekhovsgun ingest --source bilibili              # 全量同步
 export CHEKHOVSGUN_BILIBILI_FOLDERS="深度学习,后端"   # 收藏夹名或 media_id
 ```
 
+> [!WARNING]
 > SESSDATA 保存在你自己的环境变量或 `config.toml` 中，失效后需要更新。
 > 后端会将它作为 Cookie 发给 Bilibili，用于需要登录的请求。
 
-### YouTube
+</details>
+
+<details>
+<summary><b>YouTube</b></summary>
 
 公开/不公开播放列表用 API key 就够了（Google Cloud → 启用 YouTube Data API v3）：
 
@@ -233,7 +284,10 @@ chekhovsgun ingest --source youtube      # 不指定播放列表时自动抓 LL 
 pip install -e ".[youtube]"
 ```
 
-### 都不想配？
+</details>
+
+<details>
+<summary><b>都不想配？</b></summary>
 
 任何 json / jsonl / csv / 纯链接列表都能直接导入：
 
@@ -241,6 +295,8 @@ pip install -e ".[youtube]"
 chekhovsgun import my-saves.json          # 支持 Google Takeout 导出
 chekhovsgun import urls.txt               # 一行一个链接
 ```
+
+</details>
 
 ---
 
@@ -457,6 +513,9 @@ export CHEKHOVSGUN_LLM_BASE_URL=            # 任何 OpenAI 兼容端点
 
 ## 数据放在哪
 
+<details>
+<summary>展开</summary>
+
 | 内容 | 位置 |
 | --- | --- |
 | 扩展的收藏库 | 浏览器 profile 里的 IndexedDB（`chekhovsgun`）——条目、分块、向量 |
@@ -470,9 +529,14 @@ export CHEKHOVSGUN_LLM_BASE_URL=            # 任何 OpenAI 兼容端点
 若配置远程 embedding 或 LLM 服务，请求会向服务商发送文本。扩展偏好设置使用浏览器
 同步存储，收藏正文保存在本地 IndexedDB。没有遥测。
 
+</details>
+
 ---
 
 ## 开发
+
+<details>
+<summary>展开</summary>
 
 ```bash
 npm install && npm test     # 扩展的引擎，不需要浏览器
@@ -499,9 +563,14 @@ coverage/confidence 的算术，全都必须逐字节一致。改了任何一边
 `chekhovsgun/adapters/base.py` 里的三个方法：列出收藏、取正文、认 URL。
 其余代码不知道 chunk 是从哪来的。
 
+</details>
+
 ---
 
 ## 打包
+
+<details>
+<summary>展开</summary>
 
 ```bash
 npm run build                       # → dist/chekhovsgun-<版本>-{lite,with-model}.zip
@@ -522,6 +591,10 @@ pyinstaller chekhovsgun.spec        # → dist/ChekhovsGun(.exe)
 （`ChekhovsGun.exe ingest --source bilibili`），所以一个二进制两用。
 打 tag 推上去会由 CI 自动构建三个平台的产物和扩展压缩包。
 
+</details>
+
+---
+
 ## 已知限制
 
 - 在你跑 `npm run fetch-model` 之前，扩展用的是 BM25 加哈希编码器，没有真正的语义；
@@ -541,6 +614,8 @@ pyinstaller chekhovsgun.spec        # → dist/ChekhovsGun(.exe)
 - 桌面浏览器不是大多数人刷信息流的地方——手机端才是，那是另一个工程。
   `POST /api/relate` 现在接受任意 URL 加文本并给出结果，这就是留给手机端的接口；
   但手机端本身还不存在。
+
+---
 
 ## License
 

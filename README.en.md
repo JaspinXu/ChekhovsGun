@@ -1,15 +1,36 @@
+<div align="center">
+
 # ChekhovsGun
+
+**The things you saved come find you — right when you're scrolling past something related.**
 
 [简体中文](README.md) · **English**
 
-<p align="center"><img src="docs/assets/v2/hero-en.png" alt="ChekhovsGun: just save it. The thing you saved speaks up when you scroll onto something related" width="100%"></p>
+<img src="docs/assets/v2/hero-en.png" alt="ChekhovsGun: just save it. The thing you saved speaks up when you scroll onto something related" width="100%">
 
-[Download](https://github.com/JaspinXu/ChekhovsGun/releases/latest) · [Install](#install-it-in-30-seconds) · [Architecture](#how-it-works)
+<p>
+<img src="https://img.shields.io/badge/Chrome%20Extension-Manifest%20V3-4285F4?logo=googlechrome&logoColor=white" alt="Chrome Extension">
+<img src="https://img.shields.io/badge/Retrieval%20core-JavaScript-F7DF1E?logo=javascript&logoColor=black" alt="JavaScript">
+<img src="https://img.shields.io/badge/Local%20storage-IndexedDB-5A29E4" alt="IndexedDB">
+<img src="https://img.shields.io/badge/Optional%20backend-Python%203.10+-3776AB?logo=python&logoColor=white" alt="Python">
+<img src="https://img.shields.io/badge/Backend%20index-SQLite-003B57?logo=sqlite&logoColor=white" alt="SQLite">
+<img src="https://img.shields.io/badge/License-MIT-blue" alt="License">
+</p>
+
+<h3>
+<a href="https://github.com/JaspinXu/ChekhovsGun/releases/latest">Download</a> ·
+<a href="#install-it-in-30-seconds">Install in 30 s</a> ·
+<a href="#how-it-works">How it works</a> ·
+<a href="#how-retrieval-works-and-why">Retrieval</a> ·
+<a href="#known-limitations">Limitations</a>
+</h3>
+
+</div>
+
+<br>
 
 > If a gun hangs on the wall in the first act, it must go off in the third.
 > Everything you bookmark deserves the same.
-
-**The things you saved come find you — right when you're scrolling past something related.**
 
 We've all done it: you stumble onto a genuinely great tutorial or a great answer, hit
 save, tell yourself you'll read it later, and it stays in that folder forever.
@@ -24,34 +45,57 @@ already going to click, and the thing comes back to you when it is useful.
 Videos and posts both, from platforms with an API and platforms without one. Everything
 runs locally by default; optional backend integrations are described below.
 
-![Chrome Extension](https://img.shields.io/badge/Chrome%20Extension-Manifest%20V3-4285F4?logo=googlechrome&logoColor=white)
-![JavaScript](https://img.shields.io/badge/Retrieval%20core-JavaScript-F7DF1E?logo=javascript&logoColor=black)
-![IndexedDB](https://img.shields.io/badge/Local%20storage-IndexedDB-5A29E4)
-![Python](https://img.shields.io/badge/Optional%20backend-Python%203.10+-3776AB?logo=python&logoColor=white)
-![SQLite](https://img.shields.io/badge/Backend%20index-SQLite-003B57?logo=sqlite&logoColor=white)
-![License](https://img.shields.io/badge/License-MIT-blue)
-
+> [!TIP]
 > The extension is the whole product: no Python, no server, no API key, and capture,
 > indexing and retrieval all happen inside the browser. The optional Python backend only
 > adds local Whisper transcription, bulk sync through platform APIs, and body fetching
 > for scanned links. Cards stay quiet until the library holds 15 saves,
 > which is deliberate; searching on purpose works from the very first one.
 
-[Install in 30 seconds](#install-it-in-30-seconds) · [Highlights](#highlights) · [How it works](#how-it-works) · [Semantic search](#turn-on-semantic-search) · [Optional backend](#the-optional-python-backend) · [Command line](#command-line) · [Known limitations](#known-limitations)
+<details>
+<summary><b>Contents</b></summary>
+
+- [Highlights](#highlights)
+- [How it works](#how-it-works)
+- [Install it in 30 seconds](#install-it-in-30-seconds)
+- [Turn on semantic search](#turn-on-semantic-search)
+- [The optional Python backend](#the-optional-python-backend)
+- [Connect your video accounts](#connect-your-video-accounts)
+- [Four content sources](#four-content-sources)
+- [The life of a save](#the-life-of-a-save)
+- [The popup waits until it can be trusted](#the-popup-waits-until-it-can-be-trusted)
+- [How retrieval works (and why)](#how-retrieval-works-and-why)
+- [That little "read"](#that-little-read)
+- [Command line](#command-line)
+- [Where the data lives](#where-the-data-lives)
+- [Development](#development)
+- [Packaging](#packaging)
+- [Known limitations](#known-limitations)
+- [License](#license)
+
+</details>
 
 ---
 
 ## Highlights
 
-- **Bookmarking is the only step:** click the site's own save button and that page is in. Nothing to export, nothing to file, no reading list to revisit.
-- **It finds you while you scroll:** the extension recognizes the page you're on and pops a card on a hit — a video seeks to the second that covers it, a post scrolls to and highlights the passage that does.
-- **Take in the backlog at once:** a one-click scan collects links loaded while scrolling a favourites page. Standalone mode initially stores titles and links.
-- **Hybrid retrieval:** a BM25 inverted index and vector recall run side by side, fused by rank with RRF, with a separate confidence score deciding whether this is worth interrupting you at all.
-- **Mixed Chinese/English retrieval:** CJK character unigrams + bigrams shared by both retrieval paths; optional multilingual-e5-small adds semantic vectors. Pure cross-language results can still be filtered by the confidence gate.
-- **Four content sources:** subtitles (Bilibili CC and AI tracks, YouTube player tracks), top comments, local Whisper transcription as a fallback, and heuristic article extraction for posts.
-- **The life of a save:** active, digested or muted. The digested rate — not the number of popups — is the success metric, and a re-sync never overwrites your own marks.
-- **Local by default:** saves and retrieval stay on-device. Optional platform sync and remote AI providers use network requests; no telemetry.
-- **Extensible site recipes:** Zhihu, Xiaohongshu, WeChat articles, Weibo, Juejin, CSDN, Jianshu, Reddit, X, Stack Overflow, Medium, YouTube and Bilibili ship built in; a new site is one entry in `extension/recipes.js`.
+<table>
+<tr>
+<td width="33%" valign="top"><b>Bookmarking is the only step</b><br>Click the site's own save button and that page is in. Nothing to export, nothing to file, no reading list to revisit.</td>
+<td width="33%" valign="top"><b>It finds you while you scroll</b><br>The extension recognizes the page you're on and pops a card on a hit — a video seeks to the second that covers it, a post scrolls to and highlights the passage that does.</td>
+<td width="33%" valign="top"><b>Take in the backlog at once</b><br>A one-click scan collects links loaded while scrolling a favourites page. Standalone mode initially stores titles and links.</td>
+</tr>
+<tr>
+<td width="33%" valign="top"><b>Hybrid retrieval</b><br>A BM25 inverted index and vector recall run side by side, fused by rank with RRF, with a separate confidence score deciding whether this is worth interrupting you at all.</td>
+<td width="33%" valign="top"><b>Mixed Chinese/English retrieval</b><br>CJK character unigrams + bigrams shared by both retrieval paths; optional multilingual-e5-small adds semantic vectors. Pure cross-language results can still be filtered by the confidence gate.</td>
+<td width="33%" valign="top"><b>Four content sources</b><br>Subtitles (Bilibili CC and AI tracks, YouTube player tracks), top comments, local Whisper transcription as a fallback, and heuristic article extraction for posts.</td>
+</tr>
+<tr>
+<td width="33%" valign="top"><b>The life of a save</b><br>Active, digested or muted. The digested rate — not the number of popups — is the success metric, and a re-sync never overwrites your own marks.</td>
+<td width="33%" valign="top"><b>Local by default</b><br>Saves and retrieval stay on-device. Optional platform sync and remote AI providers use network requests; no telemetry.</td>
+<td width="33%" valign="top"><b>Extensible site recipes</b><br>Zhihu, Xiaohongshu, WeChat articles, Weibo, Juejin, CSDN, Jianshu, Reddit, X, Stack Overflow, Medium, YouTube and Bilibili ship built in; a new site is one entry in <code>extension/recipes.js</code>.</td>
+</tr>
+</table>
 
 ---
 
@@ -121,10 +165,12 @@ against a local IndexedDB that never leaves your machine.
   so the extension is granted access for that one click and holds no standing permission
   to read your browsing.
 
-The card stays quiet until your library holds 15 saves. That is deliberate, not a bug —
-see [The popup waits until it can be trusted](#the-popup-waits-until-it-can-be-trusted).
-The popup tells you how many more you need. Open the extension icon and use the search box to search from save one.
+> [!IMPORTANT]
+> The card stays quiet until your library holds 15 saves. That is deliberate, not a bug —
+> see [The popup waits until it can be trusted](#the-popup-waits-until-it-can-be-trusted).
+> The popup tells you how many more you need. Open the extension icon and use the search box to search from save one.
 
+> [!NOTE]
 > Some sites use one button for both saving and un-saving. Where the control exposes its
 > state we read it; where it doesn't, a click is treated as a save.
 
@@ -202,7 +248,8 @@ pretending you just scrolled onto:
 
 ## Connect your video accounts
 
-### Bilibili
+<details open>
+<summary><b>Bilibili</b></summary>
 
 Bilibili has no public API, so it uses the cookie from your browser. On a logged-in
 bilibili.com page press F12 → Application → Cookies and copy `SESSDATA`:
@@ -222,10 +269,14 @@ few:
 export CHEKHOVSGUN_BILIBILI_FOLDERS="deep-learning,backend"   # folder names or media_ids
 ```
 
+> [!WARNING]
 > Store SESSDATA in your environment variables or `config.toml` and refresh it when it expires.
 > The backend sends it to Bilibili as a cookie for authenticated requests.
 
-### YouTube
+</details>
+
+<details>
+<summary><b>YouTube</b></summary>
 
 Public and unlisted playlists need nothing but an API key (Google Cloud → enable the
 YouTube Data API v3):
@@ -251,7 +302,10 @@ For better subtitle coverage, install the community transcript library:
 pip install -e ".[youtube]"
 ```
 
-### Don't want to configure any of it?
+</details>
+
+<details>
+<summary><b>Don't want to configure any of it?</b></summary>
 
 Any json / jsonl / csv / plain list of links imports directly:
 
@@ -259,6 +313,8 @@ Any json / jsonl / csv / plain list of links imports directly:
 chekhovsgun import my-saves.json          # Google Takeout exports work
 chekhovsgun import urls.txt               # one link per line
 ```
+
+</details>
 
 ---
 
@@ -497,6 +553,9 @@ export CHEKHOVSGUN_LLM_BASE_URL=            # any OpenAI-compatible endpoint
 
 ## Where the data lives
 
+<details>
+<summary>Show</summary>
+
 | What | Where |
 | --- | --- |
 | Extension library | IndexedDB (`chekhovsgun`) in your browser profile — items, chunks, vectors |
@@ -511,9 +570,14 @@ Capture and retrieval run locally by default. The optional backend listens on
 embedding or LLM providers, their requests send text to those providers. Extension
 preferences use browser sync storage; saved content stays in local IndexedDB. No telemetry.
 
+</details>
+
 ---
 
 ## Development
+
+<details>
+<summary>Show</summary>
 
 ```bash
 npm install && npm test     # the extension engine, no browser needed
@@ -541,9 +605,14 @@ Adding a third source (Xiaohongshu, Zhihu, Pocket…) means implementing three m
 `chekhovsgun/adapters/base.py`: list saves, fetch content, recognize a URL. The rest of
 the code doesn't know where a chunk came from.
 
+</details>
+
 ---
 
 ## Packaging
+
+<details>
+<summary>Show</summary>
 
 ```bash
 npm run build                       # → dist/chekhovsgun-<version>-{lite,with-model}.zip
@@ -563,6 +632,10 @@ pyinstaller chekhovsgun.spec        # → dist/ChekhovsGun(.exe)
 Double-clicking the resulting single file gives you tray mode; run it with arguments and
 it's still the full CLI (`ChekhovsGun.exe ingest --source bilibili`), so one binary does
 both. Pushing a tag has CI build artifacts for all three platforms plus the extension zip.
+
+</details>
+
+---
 
 ## Known limitations
 
@@ -592,6 +665,8 @@ both. Pushing a tag has CI build artifacts for all three platforms plus the exte
 - The desktop browser isn't where most people scroll — phones are, and that's a different
   engineering problem. `POST /api/relate` takes any URL plus text and answers, which is
   the seam a phone client would plug into; nothing on the phone side exists yet.
+
+---
 
 ## License
 
