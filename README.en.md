@@ -2,9 +2,7 @@
 
 [简体中文](README.md) · **English**
 
-![ChekhovsGun: your bookmarks, right on cue](docs/assets/hero.png)
-
-*Concept illustration: save, connect, rediscover.*
+<p align="center"><img src="docs/assets/v2/hero-en.png" alt="ChekhovsGun: just save it. The thing you saved speaks up when you scroll onto something related" width="100%"></p>
 
 [Download](https://github.com/JaspinXu/ChekhovsGun/releases/latest) · [Install](#install-it-in-30-seconds) · [Architecture](#how-it-works)
 
@@ -49,7 +47,7 @@ runs locally by default; optional backend integrations are described below.
 - **It finds you while you scroll:** the extension recognizes the page you're on and pops a card on a hit — a video seeks to the second that covers it, a post scrolls to and highlights the passage that does.
 - **Take in the backlog at once:** a one-click scan collects links loaded while scrolling a favourites page. Standalone mode initially stores titles and links.
 - **Hybrid retrieval:** a BM25 inverted index and vector recall run side by side, fused by rank with RRF, with a separate confidence score deciding whether this is worth interrupting you at all.
-- **Mixed Chinese/English retrieval:** CJK character bigrams shared by both retrieval paths; optional multilingual-e5-small adds semantic vectors. Pure cross-language results can still be filtered by the confidence gate.
+- **Mixed Chinese/English retrieval:** CJK character unigrams + bigrams shared by both retrieval paths; optional multilingual-e5-small adds semantic vectors. Pure cross-language results can still be filtered by the confidence gate.
 - **Four content sources:** subtitles (Bilibili CC and AI tracks, YouTube player tracks), top comments, local Whisper transcription as a fallback, and heuristic article extraction for posts.
 - **The life of a save:** active, digested or muted. The digested rate — not the number of popups — is the success metric, and a re-sync never overwrites your own marks.
 - **Local by default:** saves and retrieval stay on-device. Optional platform sync and remote AI providers use network requests; no telemetry.
@@ -59,7 +57,10 @@ runs locally by default; optional backend integrations are described below.
 
 ## How it works
 
-![Capture, local indexing, hybrid retrieval and resurfacing, with optional backend result fusion](docs/assets/architecture-en.svg)
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/v2/pipeline-en-dark.png">
+  <img src="docs/assets/v2/pipeline-en-light.png" alt="System overview: capture → index → retrieve → surface → close the loop; the optional Python backend joins through result-level RRF" width="100%">
+</picture>
 
 *The default path runs in the browser. Dashed paths are optional. Click to expand.*
 
@@ -311,6 +312,11 @@ chekhovsgun hydrate                                    # fetch text for links al
 
 A save has three states, which exist to answer "what happens after it fires":
 
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/v2/lifecycle-en-dark.png">
+  <img src="docs/assets/v2/lifecycle-en-light.png" alt="The life of a save: active → digested / muted; the success metric is the digested rate" width="100%">
+</picture>
+
 | State | Meaning | Still pops? | Counts as done? |
 | --- | --- | --- | --- |
 | Active (还欠着) | Default | Yes | — |
@@ -359,6 +365,11 @@ export CHEKHOVSGUN_MIN_LIBRARY_ITEMS=0    # if you would rather judge for yourse
 
 This is the part of the project that actually required thinking.
 
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/v2/retrieval-en-dark.png">
+  <img src="docs/assets/v2/retrieval-en-light.png" alt="Retrieval: RRF ranks, an independent confidence gates, final order is score × (0.2 + 0.8·conf)" width="100%">
+</picture>
+
 **Hybrid retrieval.** The default vector backend is a zero-dependency hashed n-gram
 encoder — it works straight out of a clone, with no API key and no model download. The
 price is that it has no real semantics and is easily fooled by text in the same register
@@ -369,14 +380,14 @@ between two scales that have nothing in common, and one outlier score can't drag
 result off course.
 
 **Chinese tokenization.** Chinese has no spaces, so splitting on whitespace turns an
-entire sentence into a single token. This uses CJK **character bigrams** combined with
+entire sentence into a single token. This uses CJK **character unigrams and bigrams** combined with
 Latin words, and the vector path and the BM25 path share the same tokenizer so both recall
 routes see identical text.
 
 **Confidence and ranking are two different things.** An RRF score can order results but
 can't answer "should this pop up at all" — its range drifts with corpus size. So
-confidence is computed separately on a 0–1 scale: vector cosine × IDF-weighted coverage of
-the query terms, and if neither is high the result is judged irrelevant. A few details
+confidence is computed separately on a 0–1 scale: a blend of vector cosine and IDF-weighted coverage of
+the query terms (a linear part plus a √(cos·cov) geometric term, so both signals must fire); below 0.30 the result is judged irrelevant. A few details
 matter:
 
 - **Terms absent from the corpus don't count in the denominator.** "How I made my React
@@ -389,7 +400,7 @@ matter:
   both contain "how do I." Coverage decays with saturation over the number of matched
   terms, so one term earns at most about 56% of the score.
 
-**At most N passages per save.** A 40-minute lecture cuts into dozens of near-identical
+**At most 4 passages per save.** A 40-minute lecture cuts into dozens of near-identical
 chunks. The textbook answer is MMR, and it's wrong here: results are aggregated **by
 save** in the end, and multiple passages from one save are corroborating evidence — MMR
 deletes them, and in testing what it deleted was precisely the best-matching passage. A
@@ -416,6 +427,11 @@ chekhovsgun reindex
 ### Performance
 
 On a synthetic library of 2,000 saves / 15,555 passages (`python scripts/benchmark.py`):
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/v2/stats-en-dark.png">
+  <img src="docs/assets/v2/stats-en-light.png" alt="Performance: 6.1 ms query p50, 1.5 s cold start, 32 MB resident" width="100%">
+</picture>
 
 | Metric | Value |
 | --- | --- |

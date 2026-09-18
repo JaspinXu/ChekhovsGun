@@ -12,3 +12,8 @@ Concept: the knowledge you saved comes back at exactly the right moment. On the 
 Visual style: premium editorial illustration, precise isometric paper objects, restrained tactile 3D with fine ink details, warm ivory background, deep midnight-navy typography, muted teal and amber accents, soft natural shadows, very generous whitespace. Sophisticated and calm, not cyberpunk or corporate stock art. Clean modular composition, beautiful at small README width. No excessive decorative particles, no neon gradients.
 Text: top-left large perfectly spelled title "ChekhovsGun". Beneath it medium legible tagline "Your bookmarks. Right on cue." Bottom edge three small labels "SAVE"   "CONNECT"   "REDISCOVER", aligned to the narrative objects. No other words. The title and tagline must be prominent and readable. No numerical claims, star counts, benchmark results, logos from other products, weapons, or fake UI text.
 Use most of the lower two-thirds for the visual story; keep every object contained within the frame with clean generous margins.
+
+## v2 figures (`v2/`)
+
+- `hero-{zh,en}.png`, and `pipeline` / `retrieval` / `lifecycle` / `stats` as `-{zh,en}-{light,dark}.png`; the README picks light or dark with `<picture>`.
+- Rendered from HTML with Playwright: `python scripts/readme_figures/render.py`. Numbers and constants in the figures mirror `extension/core/config.js` and `extension/core/retrieve.js` (RRF 0.6/0.4, k=60; <=4 chunks per save; conf >= 0.30; score/top >= 0.45; library >= 15).

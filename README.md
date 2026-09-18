@@ -2,9 +2,7 @@
 
 **简体中文** · [English](README.en.md)
 
-![ChekhovsGun：让沉睡的收藏，在需要时重新出现](docs/assets/hero.png)
-
-*概念插画：从保存，到关联，再到重新发现。*
+<p align="center"><img src="docs/assets/v2/hero-zh.png" alt="ChekhovsGun：你只需要收藏。刷到相关内容时，收藏过的那一条会自己跳出来" width="100%"></p>
 
 [下载扩展](https://github.com/JaspinXu/ChekhovsGun/releases/latest) · [安装指南](#30-秒装好) · [架构图](#它是怎么工作的)
 
@@ -46,7 +44,7 @@
 - **刷到就提醒：** 扩展识别你当前在看的页面，命中就弹一张卡片——视频跳到讲这件事的那一秒，帖子滚动到并高亮出讲这件事的那一段。
 - **存量一次收完：** 收藏夹页面上的一键扫描会自动往下翻完整个收藏夹，收集当前列表滚动加载出的链接；独立模式先存标题和链接。
 - **混合检索：** BM25 倒排与向量召回并行，RRF 按排名融合，再由一个独立的置信度决定「到底要不要打扰你」。
-- **中英混合检索：** CJK 字符二元组分词，向量与 BM25 共用同一套；可选的本地 multilingual-e5-small 提供语义向量，纯跨语言召回仍受置信度门槛限制。
+- **中英混合检索：** CJK 字符一元组 + 二元组分词，向量与 BM25 共用同一套；可选的本地 multilingual-e5-small 提供语义向量，纯跨语言召回仍受置信度门槛限制。
 - **四个内容源：** 字幕（B 站 CC 与 AI 字幕、YouTube 播放器轨）、高赞评论、本地 Whisper 转写兜底，以及网页正文的启发式抽取。
 - **收藏的一生：** 还欠着 / 已学完 / 已静音三个状态。学完率而不是弹出次数才是成功指标，重新同步永远不会覆盖你的标记。
 - **默认本地：** 收藏与检索在设备上完成；可选的平台同步和远程 AI 服务会发起网络请求。没有遥测。
@@ -56,7 +54,10 @@
 
 ## 它是怎么工作的
 
-![采集、本地索引、混合检索与提醒；可选后端通过结果层融合接入](docs/assets/architecture-zh.svg)
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/v2/pipeline-zh-dark.png">
+  <img src="docs/assets/v2/pipeline-zh-light.png" alt="系统总览：收进来 → 建索引 → 检索 → 提醒 → 收口；可选 Python 后端在结果层用 RRF 融合接入" width="100%">
+</picture>
 
 *默认路径在浏览器内完成；虚线为可选后端。点击图片可查看大图。*
 
@@ -286,6 +287,11 @@ chekhovsgun hydrate                                    # 给只有链接的收�
 
 一件收藏有三个状态，用来回答「弹出来之后呢」：
 
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/v2/lifecycle-zh-dark.png">
+  <img src="docs/assets/v2/lifecycle-zh-light.png" alt="收藏的一生：还欠着 → 已学完 / 已静音，成功指标是学完率" width="100%">
+</picture>
+
 | 状态 | 含义 | 还会弹吗 | 算进学完率吗 |
 | --- | --- | --- | --- |
 | 还欠着 | 默认 | 会 | — |
@@ -331,6 +337,11 @@ export CHEKHOVSGUN_MIN_LIBRARY_ITEMS=0    # 你要是想自己判断
 
 这部分是整个项目里真正需要动脑子的地方。
 
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/v2/retrieval-zh-dark.png">
+  <img src="docs/assets/v2/retrieval-zh-light.png" alt="检索：RRF 负责排序，独立的置信度负责门控，最终按 score × (0.2 + 0.8·conf) 排序" width="100%">
+</picture>
+
 **混合检索。** 默认的向量后端是一个零依赖的哈希 n-gram 编码器——克隆下来就能用，
 不需要 API key，不需要下模型。代价是它没有真正的语义，
 容易被「语域相同但主题无关」的文本骗到。BM25 的失败模式正好相反：
@@ -339,12 +350,12 @@ export CHEKHOVSGUN_MIN_LIBRARY_ITEMS=0    # 你要是想自己判断
 所以不需要校准两条完全不同量纲的分数，也不会被一个离群分数带偏。
 
 **中文分词。** 中文没有空格，直接按空白切会把一整句话变成一个 token。
-这里用的是 CJK **字符二元组** + 拉丁词的组合，向量和 BM25 共用同一套分词，
+这里用的是 CJK **字符一元组与二元组** + 拉丁词的组合，向量和 BM25 共用同一套分词，
 保证两条召回路径看到的是同一份文本。
 
 **置信度与排序是两件事。** RRF 分数只能排序，不能回答「这到底要不要弹出来」——
 它的取值范围随语料规模漂移。所以另算了一个 0~1 的**置信度**：
-向量余弦 × 查询词的 IDF 加权覆盖率，两者都不高就判定为无关。
+由向量余弦和查询词的 IDF 加权覆盖率混合而成（线性项加一个 √(cos·cov) 几何项，两路信号缺一就上不去），低于 0.30 就判定为无关。
 几个关键细节：
 
 - **语料里没出现过的词不计入分母。** "How I made my React app 10x faster"
@@ -355,7 +366,7 @@ export CHEKHOVSGUN_MIN_LIBRARY_ITEMS=0    # 你要是想自己判断
 - **单个词的匹配不算证据。**「红烧肉的做法」和一个 Redis 讲解都含有「做法」。
   覆盖率按命中词数做饱和衰减，一个词最多只能拿到约 56% 的分。
 
-**每个收藏最多贡献 N 个片段。** 一个 40 分钟的讲座会切出几十个几乎一样的块。
+**每个收藏最多贡献 4 个片段。** 一个 40 分钟的讲座会切出几十个几乎一样的块。
 教科书答案是 MMR，但在这里是错的：结果最终要按**收藏**聚合，
 同一个收藏的多个片段是互相印证的证据，而 MMR 会把它们删掉——
 实测中它删掉的正是命中最好的那一段。改成按收藏限流，效果好得多。
@@ -381,6 +392,11 @@ chekhovsgun reindex
 ### 性能
 
 在一个合成的 2000 条收藏 / 15555 个片段的库上（`python scripts/benchmark.py`）：
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/v2/stats-zh-dark.png">
+  <img src="docs/assets/v2/stats-zh-light.png" alt="性能：检索 p50 6.1 ms，冷启动 1.5 s，常驻内存 32 MB" width="100%">
+</picture>
 
 | 指标 | 数值 |
 | --- | --- |
